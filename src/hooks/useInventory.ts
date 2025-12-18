@@ -6,6 +6,8 @@ import { Customer, DesignSizeInventory, Rental, Purchase, Shipment, WeekRange } 
 const COMPANY_ID = '00000000-0000-0000-0000-000000000001';
 
 // Active rental statuses that consume inventory for the week
+// User Requirement: Scheduled (대여예정) & Shipped (출고완료) count as Reserved.
+// Mon-Sun Unit: Any status overlapping the week consumes the slot.
 const ACTIVE_RENTAL_STATUSES = ['대여예정', '출고완료', '대여중', '반납완료', '연체'];
 
 export const useInventory = () => {

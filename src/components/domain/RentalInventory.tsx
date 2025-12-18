@@ -358,7 +358,7 @@ export const RentalInventory: React.FC<RentalInventoryProps> = ({
                   <TableHead>대여료</TableHead>
                   {canViewTotal && <TableHead>총 수량</TableHead>}
                   <TableHead>대여가능 (주간)</TableHead>
-                  <TableHead>대여중 (주간)</TableHead>
+                  <TableHead>대여/예약 (주간)</TableHead>
                   {canEdit && <TableHead>삭제</TableHead>}
                 </TableRow>
               </TableHeader>

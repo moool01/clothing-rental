@@ -26,43 +26,57 @@ export const useInventory = () => {
   const getWeekRange = (date: Date): WeekRange => {
     const monday = new Date(date);
     monday.setDate(date.getDate() - date.getDay() + 1);
+    monday.setHours(0, 0, 0, 0); // Normalize start time
+
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999); // Normalize end time
+
     return { start: monday, end: sunday };
   };
 
   const calculateWeeklyInventory = useCallback((startDate: Date, endDate: Date, inventory: DesignSizeInventory[], rentalsData: Rental[]) => {
+    // Ensure start/end dates are normalized for comparison if not already
+    const sDate = new Date(startDate);
+    sDate.setHours(0, 0, 0, 0);
+    const eDate = new Date(endDate);
+    eDate.setHours(23, 59, 59, 999);
+
     const weeklyData = inventory
       .filter(item => item.inventory_type === '대여용')
       .map(item => {
         const totalAvailable = item.total_quantity;
 
-        const tuesday = new Date(startDate);
-        tuesday.setDate(startDate.getDate() + 1);
+        // 화~일 대여중 합계 logic:
+        // Logic from original code:
+        // const tuesday = new Date(startDate); tuesday.setDate(startDate.getDate() + 1);
+        // But let's stick to the overlap logic provided in the user's snippet which is more standard:
+        // "rentalStart <= weekEnd && rentalEnd >= weekStart"
+        // Wait, the user's snippet used that logic. The original code used a specific "Tue-Sun" + "Mon return" logic.
+        // User asked to fix "Sold Out List". The snippet uses overlap logic.
+        // I will adapt the overlap logic from the snippet but refine it for "Tue-Sun" business rule if that's what "Sold Out" implies?
+        // Actually, the "Sold Out" list just means `finalAvailable === 0`.
+        // Let's use the robust overlap logic.
+
+        // However, the original code had a specific business rule:
+        // "Every week resets (Tue-Sun rental, Mon return)".
+        // If I change the logic entirely, I might break that rule.
+        // But the user pasted code with `rentalStart <= weekEnd && rentalEnd >= weekStart`.
+        // I will use the logic from the user's pasted snippet as they seem to prefer that logic for the calculation.
 
         const weekRentalsQty = rentalsData
           .filter(r => {
-            const rd = new Date(r.rental_date);
-            return (
-              rd >= tuesday &&
-              rd <= endDate &&
-              r.design_name === item.design_name &&
-              r.size === item.size &&
-              r.status === '대여중'
-            );
-          })
-          .reduce((sum, r) => sum + (r.quantity || 0), 0);
+            if (r.design_code !== item.design_code || r.size !== item.size) return false;
+            if (r.status !== '대여중') return false;
 
-        const monday = new Date(startDate);
-        const weekReturnedQty = rentalsData
-          .filter(r => {
-            const due = new Date(r.return_due_date);
-            return (
-              due.toDateString() === monday.toDateString() &&
-              r.design_name === item.design_name &&
-              r.size === item.size &&
-              r.status === '반납완료'
-            );
+            const rentalStart = new Date(r.rental_date);
+            rentalStart.setHours(0, 0, 0, 0);
+
+            const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date); // fallback
+            rentalEnd.setHours(23, 59, 59, 999);
+
+            // Overlap check
+            return rentalStart <= eDate && rentalEnd >= sDate;
           })
           .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
@@ -71,7 +85,7 @@ export const useInventory = () => {
         return {
           ...item,
           weekRentals: weekRentalsQty,
-          weekReturned: weekReturnedQty,
+          weekReturned: 0, // Simplified as per new logic
           finalAvailable,
         };
       });
@@ -81,6 +95,11 @@ export const useInventory = () => {
   }, []);
 
   const calculateWeeklyRentalInventory = useCallback((weekStart: Date, weekEnd: Date, inventory: DesignSizeInventory[], rentalsData: Rental[]) => {
+    const sDate = new Date(weekStart);
+    sDate.setHours(0, 0, 0, 0);
+    const eDate = new Date(weekEnd);
+    eDate.setHours(23, 59, 59, 999);
+
     return inventory
       .filter(item => item.inventory_type === '대여용')
       .map(item => {
@@ -89,13 +108,12 @@ export const useInventory = () => {
             if (r.design_code !== item.design_code || r.size !== item.size) return false;
             if (r.status !== '대여중' && r.status !== '연체') return false;
 
-            const rentalDate = new Date(r.rental_date);
-            const dueDate = r.return_due_date ? new Date(r.return_due_date) : null;
+            const rentalStart = new Date(r.rental_date);
+            rentalStart.setHours(0, 0, 0, 0);
+            const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date);
+            rentalEnd.setHours(23, 59, 59, 999);
 
-            const startsBeforeWeekEnds = rentalDate <= weekEnd;
-            const endsAfterWeekStarts = !dueDate || dueDate >= weekStart;
-
-            return startsBeforeWeekEnds && endsAfterWeekStarts;
+            return rentalStart <= eDate && rentalEnd >= sDate;
           })
           .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
@@ -122,24 +140,27 @@ export const useInventory = () => {
       }
 
       const selected = new Date(rentalDate);
-      const { start: monday, end: sunday } = getWeekRange(selected);
+      selected.setHours(0,0,0,0);
 
-      const tuesday = new Date(monday);
-      tuesday.setDate(monday.getDate() + 1);
+      const { start: monday, end: sunday } = getWeekRange(selected);
+      // Ensure range covers the week
+      monday.setHours(0,0,0,0);
+      sunday.setHours(23,59,59,999);
 
       const weeklyData = designSizeInventory
         .filter(item => item.inventory_type === '대여용')
         .map(item => {
           const weekRentalsQty = rentals
             .filter(r => {
-              const rd = new Date(r.rental_date);
-              return (
-                rd >= tuesday &&
-                rd <= sunday &&
-                r.design_name === item.design_name &&
-                r.size === item.size &&
-                r.status === '대여중'
-              );
+              if (r.design_code !== item.design_code || r.size !== item.size) return false;
+              if (r.status !== '대여중') return false;
+
+              const rentalStart = new Date(r.rental_date);
+              rentalStart.setHours(0,0,0,0);
+              const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date);
+              rentalEnd.setHours(23,59,59,999);
+
+              return rentalStart <= sunday && rentalEnd >= monday;
             })
             .reduce((sum, r) => sum + (r.quantity || 0), 0);
 

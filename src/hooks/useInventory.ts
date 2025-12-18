@@ -28,7 +28,11 @@ export const useInventory = () => {
   // Helpers
   const getWeekRange = (date: Date): WeekRange => {
     const monday = new Date(date);
-    monday.setDate(date.getDate() - date.getDay() + 1);
+    // Convert Sunday (0) to 7, so Mon(1) remains 1, etc.
+    // Logic: Mon(1) -> 1, Tue(2) -> 2, ..., Sun(0) -> 7.
+    // monday = date - (day - 1)
+    const day = date.getDay() || 7;
+    monday.setDate(date.getDate() - day + 1);
     monday.setHours(0, 0, 0, 0);
 
     const sunday = new Date(monday);

@@ -89,17 +89,15 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 bg-white p-2 rounded shadow-sm border">
-            <span className="text-sm font-medium text-gray-600">현재 역할:</span>
-            <Select value={role} onValueChange={(v: any) => setRole(v)}>
-              <SelectTrigger className="w-[120px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="staff">직원</SelectItem>
-                <SelectItem value="manager">실장</SelectItem>
-                <SelectItem value="admin">관리자</SelectItem>
-              </SelectContent>
-            </Select>
+            <span className="text-sm font-medium text-gray-600">
+                {role === 'staff' ? '직원' : role === 'manager' ? '실장' : '관리자'} 님
+            </span>
+            <button
+                onClick={() => setRole(null)}
+                className="text-xs text-red-500 hover:text-red-700 underline ml-2"
+            >
+                로그아웃
+            </button>
           </div>
         </div>
 
@@ -204,9 +202,5 @@ const Dashboard = () => {
 };
 
 export default function Index() {
-  return (
-    <AuthProvider>
-      <Dashboard />
-    </AuthProvider>
-  );
+  return <Dashboard />;
 }

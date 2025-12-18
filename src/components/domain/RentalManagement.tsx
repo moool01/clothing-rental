@@ -47,6 +47,10 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
   const [sortField, setSortField] = useState<keyof Rental>('rental_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  // Filter state
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   const addRental = async () => {
     try {
       const { data, error } = await supabase
@@ -107,7 +111,15 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
     }
   };
 
-  const sortedRentals = [...rentals].sort((a, b) => {
+  const filteredRentals = rentals.filter(r => {
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesSearch = searchQuery === '' ||
+        r.customers?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.design_name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  const sortedRentals = [...filteredRentals].sort((a, b) => {
     const aValue = a[sortField];
     const bValue = b[sortField];
 
@@ -139,7 +151,29 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
             <CardDescription>의류 대여 현황을 관리합니다</CardDescription>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col md:flex-row gap-2 items-center">
+            <div className="flex gap-2">
+                 <Input
+                    placeholder="고객명, 디자인명 검색"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-[200px]"
+                 />
+                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="상태 필터" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">전체 상태</SelectItem>
+                        <SelectItem value="대여예정">대여예정</SelectItem>
+                        <SelectItem value="출고완료">출고완료</SelectItem>
+                        <SelectItem value="대여중">대여중</SelectItem>
+                        <SelectItem value="반납완료">반납완료</SelectItem>
+                        <SelectItem value="연체">연체</SelectItem>
+                    </SelectContent>
+                 </Select>
+            </div>
+
             {/* Sort Controls could go here, but column headers are clickable */}
             <Dialog open={isRentalDialogOpen} onOpenChange={setIsRentalDialogOpen}>
               <DialogTrigger asChild>

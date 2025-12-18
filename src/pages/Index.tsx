@@ -130,6 +130,7 @@ const Dashboard = () => {
               setInventory={setDesignSizeInventory}
               fetchData={fetchData}
               COMPANY_ID={COMPANY_ID}
+              weeklyStats={weeklyRentalInventory}
             />
           </TabsContent>
 

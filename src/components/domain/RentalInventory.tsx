@@ -23,6 +23,7 @@ interface RentalInventoryProps {
   setInventory: React.Dispatch<React.SetStateAction<DesignSizeInventory[]>>;
   fetchData: () => Promise<void>;
   COMPANY_ID: string;
+  weeklyStats?: DesignSizeInventory[];
 }
 
 export const RentalInventory: React.FC<RentalInventoryProps> = ({
@@ -31,6 +32,7 @@ export const RentalInventory: React.FC<RentalInventoryProps> = ({
   setInventory,
   fetchData,
   COMPANY_ID,
+  weeklyStats = [],
 }) => {
   const { role } = useAuth();
   const { toast } = useToast();
@@ -58,9 +60,18 @@ export const RentalInventory: React.FC<RentalInventoryProps> = ({
   // We will stick to the raw `design_code` but maybe show a formatted version if possible.
   // For now, just display design_code as is, but we can add a helper if strict formatting is needed.
 
-  const filteredInventory = inventory.filter(item =>
-    item.design_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredInventory = inventory
+    .map(item => {
+      const stat = weeklyStats.find(s => s.id === item.id);
+      return stat ? {
+        ...item,
+        weekly_rented_quantity: stat.weekly_rented_quantity,
+        weekly_available_quantity: stat.weekly_available_quantity
+      } : item;
+    })
+    .filter(item =>
+      item.design_name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   const addDesignSize = async () => {
     try {

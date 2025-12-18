@@ -4,9 +4,12 @@ export interface Customer {
   phone: string;
   // email removed as per requirements
   address?: string | null;
+  memo?: string | null; // Added
   company_id?: string | null;
   deposit_account?: string | null; // Added: 보증금 환급 계좌
   emergency_contact?: string | null; // Added: 비상 연락처
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DesignSizeInventory {
@@ -14,7 +17,16 @@ export interface DesignSizeInventory {
   design_code: string;
   design_name: string;
   size: string;
+
+  // New fields from schema image
+  category?: string | null;
+  season?: string | null;
+  brand?: string | null;
+  color?: string | null;
+
   rental_price: number;
+  purchase_price: number; // Added
+
   total_quantity: number;
   rented_quantity: number;
   available_quantity: number;
@@ -38,6 +50,9 @@ export interface DesignSizeInventory {
   finalAvailable?: number;
   weekly_rented_quantity?: number;
   weekly_available_quantity?: number;
+
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Rental {
@@ -49,11 +64,15 @@ export interface Rental {
   quantity: number;
   rental_date: string;
   return_due_date: string;
+  return_date?: string | null; // Added
   rental_price: number;
   status: string; // '대여예정', '출고완료', '대여중', '반납완료', '연체'
   delivery_method?: string | null; // Added for sorting requirement
+  notes?: string | null; // Added
   customers?: Customer | null;
+  company_id?: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface Purchase {
@@ -67,7 +86,9 @@ export interface Purchase {
   purchase_price: number;
   status: string;
   customers?: Customer | null;
+  company_id?: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface Shipment {
@@ -83,7 +104,9 @@ export interface Shipment {
   status: string;
   notes?: string | null;
   customers?: Customer | null;
+  company_id?: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 export type WeekRange = { start: Date; end: Date };

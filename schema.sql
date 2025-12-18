@@ -4,10 +4,12 @@ CREATE TABLE customers (
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
     address TEXT,
+    memo TEXT, -- Added: matches schema image
     company_id UUID,
-    deposit_account TEXT, -- Added: 보증금 환급 계좌
-    emergency_contact TEXT, -- Added: 비상 연락처
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    deposit_account TEXT, -- Added: 보증금 환급 계좌 (Requirement)
+    emergency_contact TEXT, -- Added: 비상 연락처 (Requirement)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Design Size Inventory Table
@@ -16,7 +18,12 @@ CREATE TABLE design_size_inventory (
     design_code TEXT NOT NULL,
     design_name TEXT NOT NULL,
     size TEXT NOT NULL,
+    category TEXT, -- Added: matches schema image
+    season TEXT, -- Added: matches schema image
+    brand TEXT, -- Added: matches schema image
+    color TEXT, -- Added: matches schema image
     rental_price INTEGER DEFAULT 0,
+    purchase_price INTEGER DEFAULT 0, -- Added: matches schema image
     total_quantity INTEGER DEFAULT 0,
     rented_quantity INTEGER DEFAULT 0,
     sold_quantity INTEGER DEFAULT 0,
@@ -28,7 +35,8 @@ CREATE TABLE design_size_inventory (
     inventory_type TEXT DEFAULT '대여용', -- '대여용' | '구매용'
     display_order INTEGER,
     company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Rentals Table
@@ -41,11 +49,14 @@ CREATE TABLE rentals (
     quantity INTEGER DEFAULT 1,
     rental_date DATE NOT NULL,
     return_due_date DATE,
+    return_date DATE, -- Added: matches schema image
     rental_price INTEGER DEFAULT 0,
     status TEXT NOT NULL, -- '대여예정', '출고완료', '대여중', '반납완료', '연체'
     delivery_method TEXT, -- Added: 배송방법 (sorting requirement)
+    notes TEXT, -- Added: matches schema image
     company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Purchases Table
@@ -60,7 +71,8 @@ CREATE TABLE purchases (
     purchase_price INTEGER DEFAULT 0,
     status TEXT NOT NULL, -- '구매완료', '취소'
     company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Shipments Table
@@ -76,6 +88,7 @@ CREATE TABLE shipments (
     status TEXT NOT NULL, -- '출고대기', '출고완료', '배송중', '배송완료'
     notes TEXT,
     company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    -- tracking_number removed
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    -- tracking_number removed (Requirement)
 );

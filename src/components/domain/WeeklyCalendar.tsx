@@ -108,7 +108,7 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
                   <TableHead>디자인명</TableHead>
                   <TableHead>사이즈</TableHead>
                   <TableHead>총 수량</TableHead>
-                  <TableHead>화-일 대여중</TableHead>
+                  <TableHead>주간 예약/대여중</TableHead>
                   <TableHead>대여 가능</TableHead>
                 </TableRow>
               </TableHeader>

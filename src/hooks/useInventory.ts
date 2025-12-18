@@ -5,6 +5,9 @@ import { Customer, DesignSizeInventory, Rental, Purchase, Shipment, WeekRange } 
 
 const COMPANY_ID = '00000000-0000-0000-0000-000000000001';
 
+// Active rental statuses that consume inventory for the week
+const ACTIVE_RENTAL_STATUSES = ['대여예정', '출고완료', '대여중', '반납완료', '연체'];
+
 export const useInventory = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -26,17 +29,16 @@ export const useInventory = () => {
   const getWeekRange = (date: Date): WeekRange => {
     const monday = new Date(date);
     monday.setDate(date.getDate() - date.getDay() + 1);
-    monday.setHours(0, 0, 0, 0); // Normalize start time
+    monday.setHours(0, 0, 0, 0);
 
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999); // Normalize end time
+    sunday.setHours(23, 59, 59, 999);
 
     return { start: monday, end: sunday };
   };
 
   const calculateWeeklyInventory = useCallback((startDate: Date, endDate: Date, inventory: DesignSizeInventory[], rentalsData: Rental[]) => {
-    // Ensure start/end dates are normalized for comparison if not already
     const sDate = new Date(startDate);
     sDate.setHours(0, 0, 0, 0);
     const eDate = new Date(endDate);
@@ -47,35 +49,20 @@ export const useInventory = () => {
       .map(item => {
         const totalAvailable = item.total_quantity;
 
-        // 화~일 대여중 합계 logic:
-        // Logic from original code:
-        // const tuesday = new Date(startDate); tuesday.setDate(startDate.getDate() + 1);
-        // But let's stick to the overlap logic provided in the user's snippet which is more standard:
-        // "rentalStart <= weekEnd && rentalEnd >= weekStart"
-        // Wait, the user's snippet used that logic. The original code used a specific "Tue-Sun" + "Mon return" logic.
-        // User asked to fix "Sold Out List". The snippet uses overlap logic.
-        // I will adapt the overlap logic from the snippet but refine it for "Tue-Sun" business rule if that's what "Sold Out" implies?
-        // Actually, the "Sold Out" list just means `finalAvailable === 0`.
-        // Let's use the robust overlap logic.
-
-        // However, the original code had a specific business rule:
-        // "Every week resets (Tue-Sun rental, Mon return)".
-        // If I change the logic entirely, I might break that rule.
-        // But the user pasted code with `rentalStart <= weekEnd && rentalEnd >= weekStart`.
-        // I will use the logic from the user's pasted snippet as they seem to prefer that logic for the calculation.
-
+        // Calculate quantity of ANY active rental that overlaps with this week
         const weekRentalsQty = rentalsData
           .filter(r => {
             if (r.design_code !== item.design_code || r.size !== item.size) return false;
-            if (r.status !== '대여중') return false;
+            // Check if status is one of the active statuses
+            if (!ACTIVE_RENTAL_STATUSES.includes(r.status)) return false;
 
             const rentalStart = new Date(r.rental_date);
             rentalStart.setHours(0, 0, 0, 0);
 
-            const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date); // fallback
+            const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date);
             rentalEnd.setHours(23, 59, 59, 999);
 
-            // Overlap check
+            // Check overlap: (StartA <= EndB) and (EndA >= StartB)
             return rentalStart <= eDate && rentalEnd >= sDate;
           })
           .reduce((sum, r) => sum + (r.quantity || 0), 0);
@@ -85,7 +72,7 @@ export const useInventory = () => {
         return {
           ...item,
           weekRentals: weekRentalsQty,
-          weekReturned: 0, // Simplified as per new logic
+          weekReturned: 0,
           finalAvailable,
         };
       });
@@ -106,7 +93,7 @@ export const useInventory = () => {
         const overlappedQty = rentalsData
           .filter(r => {
             if (r.design_code !== item.design_code || r.size !== item.size) return false;
-            if (r.status !== '대여중' && r.status !== '연체') return false;
+            if (!ACTIVE_RENTAL_STATUSES.includes(r.status)) return false;
 
             const rentalStart = new Date(r.rental_date);
             rentalStart.setHours(0, 0, 0, 0);
@@ -143,7 +130,6 @@ export const useInventory = () => {
       selected.setHours(0,0,0,0);
 
       const { start: monday, end: sunday } = getWeekRange(selected);
-      // Ensure range covers the week
       monday.setHours(0,0,0,0);
       sunday.setHours(23,59,59,999);
 
@@ -153,7 +139,7 @@ export const useInventory = () => {
           const weekRentalsQty = rentals
             .filter(r => {
               if (r.design_code !== item.design_code || r.size !== item.size) return false;
-              if (r.status !== '대여중') return false;
+              if (!ACTIVE_RENTAL_STATUSES.includes(r.status)) return false;
 
               const rentalStart = new Date(r.rental_date);
               rentalStart.setHours(0,0,0,0);

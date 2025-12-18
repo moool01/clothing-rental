@@ -58,9 +58,16 @@ export const useInventory = () => {
         // Calculate quantity of ANY active rental that overlaps with this week
         const weekRentalsQty = rentalsData
           .filter(r => {
-            if (r.design_code !== item.design_code || r.size !== item.size) return false;
+            const rCode = (r.design_code || '').trim().toLowerCase();
+            const iCode = (item.design_code || '').trim().toLowerCase();
+            if (rCode !== iCode) return false;
+
+            const rSize = (r.size || '').trim().toLowerCase();
+            const iSize = (item.size || '').trim().toLowerCase();
+            if (rSize !== iSize) return false;
+
             // Check if status is one of the active statuses
-            if (!ACTIVE_RENTAL_STATUSES.includes(r.status)) return false;
+            if (!ACTIVE_RENTAL_STATUSES.includes((r.status || '').trim())) return false;
 
             const rentalStart = new Date(r.rental_date);
             rentalStart.setHours(0, 0, 0, 0);
@@ -98,8 +105,15 @@ export const useInventory = () => {
       .map(item => {
         const overlappedQty = rentalsData
           .filter(r => {
-            if (r.design_code !== item.design_code || r.size !== item.size) return false;
-            if (!ACTIVE_RENTAL_STATUSES.includes(r.status)) return false;
+            const rCode = (r.design_code || '').trim().toLowerCase();
+            const iCode = (item.design_code || '').trim().toLowerCase();
+            if (rCode !== iCode) return false;
+
+            const rSize = (r.size || '').trim().toLowerCase();
+            const iSize = (item.size || '').trim().toLowerCase();
+            if (rSize !== iSize) return false;
+
+            if (!ACTIVE_RENTAL_STATUSES.includes((r.status || '').trim())) return false;
 
             const rentalStart = new Date(r.rental_date);
             rentalStart.setHours(0, 0, 0, 0);
@@ -144,8 +158,15 @@ export const useInventory = () => {
         .map(item => {
           const weekRentalsQty = rentals
             .filter(r => {
-              if (r.design_code !== item.design_code || r.size !== item.size) return false;
-              if (!ACTIVE_RENTAL_STATUSES.includes(r.status)) return false;
+              const rCode = (r.design_code || '').trim().toLowerCase();
+              const iCode = (item.design_code || '').trim().toLowerCase();
+              if (rCode !== iCode) return false;
+
+              const rSize = (r.size || '').trim().toLowerCase();
+              const iSize = (item.size || '').trim().toLowerCase();
+              if (rSize !== iSize) return false;
+
+              if (!ACTIVE_RENTAL_STATUSES.includes((r.status || '').trim())) return false;
 
               const rentalStart = new Date(r.rental_date);
               rentalStart.setHours(0,0,0,0);

@@ -111,7 +111,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
                   <Input value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
                 </div>
                 <div>
-                  <Label>전화번호</Label>
+                  <Label>일반 연락처 (전화번호)</Label>
                   <Input value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
                 </div>
                 {/* Email Removed */}
@@ -144,7 +144,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead>이름</TableHead>
-                <TableHead>전화번호</TableHead>
+                <TableHead>일반 연락처</TableHead>
                 <TableHead>주소</TableHead>
                 <TableHead>환급 계좌</TableHead>
                 <TableHead>비상 연락처</TableHead>

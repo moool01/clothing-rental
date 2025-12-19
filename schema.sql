@@ -52,7 +52,7 @@ CREATE TABLE rentals (
     return_date DATE, -- Added: matches schema image
     rental_price INTEGER DEFAULT 0,
     status TEXT NOT NULL, -- '대여예정', '출고완료', '대여중', '반납완료', '연체'
-    delivery_method TEXT, -- Added: 배송방법 (sorting requirement)
+    shipping_method TEXT, -- Renamed from delivery_method
     notes TEXT, -- Added: matches schema image
     company_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -70,6 +70,7 @@ CREATE TABLE purchases (
     purchase_date DATE NOT NULL,
     purchase_price INTEGER DEFAULT 0,
     status TEXT NOT NULL, -- '구매완료', '취소'
+    shipping_method TEXT, -- Added for consistency
     company_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

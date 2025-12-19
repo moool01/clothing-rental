@@ -67,7 +67,7 @@ export interface Rental {
   return_date?: string | null; // Added
   rental_price: number;
   status: string; // '대여예정', '출고완료', '대여중', '반납완료', '연체'
-  delivery_method?: string | null; // Added for sorting requirement
+  shipping_method?: string | null; // Renamed from delivery_method
   notes?: string | null; // Added
   customers?: Customer | null;
   company_id?: string | null;
@@ -85,6 +85,7 @@ export interface Purchase {
   purchase_date: string;
   purchase_price: number;
   status: string;
+  shipping_method?: string | null; // Added
   customers?: Customer | null;
   company_id?: string | null;
   created_at?: string;

@@ -1,7 +1,8 @@
 import React from 'react';
 import { DesignSizeInventory, Rental, Purchase } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface StatisticsReportsProps {
   inventory: DesignSizeInventory[];
@@ -11,6 +12,8 @@ interface StatisticsReportsProps {
 
 export const StatisticsReports: React.FC<StatisticsReportsProps> = ({
   inventory,
+  rentals,
+  purchases,
 }) => {
   const { role } = useAuth();
 
@@ -22,96 +25,122 @@ export const StatisticsReports: React.FC<StatisticsReportsProps> = ({
     );
   }
 
-  // Profit Analysis: Simple calculation based on rented items * rental price
-  // NOTE: This logic was in original code.
-  // Ideally, we should sum up completed 'Rentals' and 'Purchases' from their respective tables for accuracy.
-  // But based on user request "Profit Analysis", I will stick to the existing logic or improve it slightly if data allows.
-  // The original code used `designSizeInventory` rented_quantity * rental_price which represents *current* active rentals profit potential?
-  // Or total? `rented_quantity` in inventory is usually current active rentals.
-  // Real profit analysis should come from `rentals` table history.
+  // Revenue Analysis
+  // 1. Rental Revenue: Sum of rental_price from all rentals (historical)
+  // 2. Purchase Revenue: Sum of purchase_price from all purchases (historical)
+  const totalRentalRevenue = rentals.reduce((sum, r) => sum + (r.rental_price || 0), 0);
+  const totalPurchaseRevenue = purchases.reduce((sum, p) => sum + (p.purchase_price || 0), 0);
+  const totalRevenue = totalRentalRevenue + totalPurchaseRevenue;
 
-  // Let's implement a simple "Total Revenue" from all rentals in history + all purchases in history.
+  // High Rental Rate Items
+  // Calculate rental frequency per design/size from history
+  const rentalCounts: Record<string, { name: string, size: string, count: number }> = {};
+  rentals.forEach(r => {
+    const key = `${r.design_code}-${r.size}`;
+    if (!rentalCounts[key]) {
+      rentalCounts[key] = { name: r.design_name, size: r.size, count: 0 };
+    }
+    rentalCounts[key].count += 1;
+  });
+  const sortedRentalItems = Object.values(rentalCounts).sort((a, b) => b.count - a.count).slice(0, 5);
 
-  // However, I don't have the full history logic in the props for `rentals` (it might be paginated or limited).
-  // Assuming `rentals` prop contains all relevant data or at least what was loaded.
-  // The user prompt: "Statistics Report -> Profit Analysis -> Remove Rental Status Statistics -> Clean up high rental items -> Clean up high purchase items".
-
-  // I will just use the current snapshot logic as per original code but wrapped in "Profit Analysis", unless I want to iterate over all `rentals`.
-  // Let's assume `rentals` passed to this component has all records.
-
-  // But wait, the original code used:
-  // designSizeInventory.reduce((sum, item) => sum + ((item.rented_quantity || 0) * (item.rental_price || 0)), 0)
-  // This is "Current Active Rental Value".
-
-  // The user asked for "Profit Analysis". I'll calculate total confirmed revenue.
-
-  const totalRentalRevenue = inventory.reduce((sum, item) => sum + ((item.rented_quantity || 0) * (item.rental_price || 0)), 0);
-
-  // "High Rental Rate Items" logic:
-  const highRentalItems = inventory
-    .filter(x => (x.total_quantity || 0) > 0 && x.inventory_type === '대여용')
-    .map(x => ({
-      ...x,
-      utilizationRate: Math.round(((x.rented_quantity || 0) / (x.total_quantity || 1)) * 100),
-    }))
-    .sort((a, b) => b.utilizationRate - a.utilizationRate)
-    .slice(0, 5);
-
-  const highPurchaseItems = inventory
-    .filter(x => x.inventory_type === '구매용')
-    .sort((a, b) => (b.sold_quantity || 0) - (a.sold_quantity || 0))
-    .slice(0, 5);
+  // High Purchase Rate Items
+  const purchaseCounts: Record<string, { name: string, size: string, count: number }> = {};
+  purchases.forEach(p => {
+    const key = `${p.design_code}-${p.size}`;
+    if (!purchaseCounts[key]) {
+      purchaseCounts[key] = { name: p.design_name, size: p.size, count: 0 };
+    }
+    purchaseCounts[key].count += p.quantity;
+  });
+  const sortedPurchaseItems = Object.values(purchaseCounts).sort((a, b) => b.count - a.count).slice(0, 5);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* "Rental Status Statistics" removed as per request (was the simple count/revenue card) */}
-      {/* But "Profit Analysis" is requested. I will repurpose the revenue card here. */}
-
+    <div className="space-y-6">
       <Card>
-        <CardHeader><CardTitle>수익 분석 (현재 대여중 기준)</CardTitle></CardHeader>
+        <CardHeader>
+            <CardTitle>수익 분석</CardTitle>
+            <CardDescription>전체 기간 동안의 대여 및 판매 수익 현황입니다.</CardDescription>
+        </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="text-center p-4 bg-purple-50 rounded">
-              <div className="text-2xl font-bold text-purple-600">
-                {totalRentalRevenue.toLocaleString()}원
-              </div>
-              <div className="text-sm text-gray-600">현재 대여중 예상 매출</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-gray-50 rounded-lg text-center border">
+              <div className="text-sm text-gray-500 mb-1">총 매출</div>
+              <div className="text-2xl font-bold text-gray-900">{totalRevenue.toLocaleString()}원</div>
             </div>
-            {/* Can add Purchase Revenue here if needed */}
+            <div className="p-4 bg-blue-50 rounded-lg text-center border border-blue-100">
+              <div className="text-sm text-blue-600 mb-1">대여 매출</div>
+              <div className="text-xl font-bold text-blue-800">{totalRentalRevenue.toLocaleString()}원</div>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg text-center border border-purple-100">
+              <div className="text-sm text-purple-600 mb-1">판매 매출</div>
+              <div className="text-xl font-bold text-purple-800">{totalPurchaseRevenue.toLocaleString()}원</div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>인기 아이템 분석</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div>
-              <h4 className="font-medium mb-2 text-blue-800">대여율 높은 아이템 TOP 5</h4>
-              <div className="space-y-2">
-                {highRentalItems.map((x, idx) => (
-                  <div key={x.id} className="flex justify-between items-center p-2 bg-blue-50 rounded text-sm">
-                    <span>{idx + 1}. {x.design_name} ({x.size})</span>
-                    <span className="font-medium">이용율 {x.utilizationRate}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-lg">대여율 높은 아이템 TOP 5</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>순위</TableHead>
+                            <TableHead>디자인명</TableHead>
+                            <TableHead>사이즈</TableHead>
+                            <TableHead className="text-right">대여 횟수</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {sortedRentalItems.length === 0 ? (
+                            <TableRow><TableCell colSpan={4} className="text-center">데이터 없음</TableCell></TableRow>
+                        ) : sortedRentalItems.map((item, idx) => (
+                            <TableRow key={idx}>
+                                <TableCell>{idx + 1}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell>{item.size}</TableCell>
+                                <TableCell className="text-right font-medium">{item.count}회</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
 
-            <div>
-              <h4 className="font-medium mb-2 text-purple-800">판매량 높은 아이템 TOP 5</h4>
-              <div className="space-y-2">
-                {highPurchaseItems.map((x, idx) => (
-                  <div key={x.id} className="flex justify-between items-center p-2 bg-purple-50 rounded text-sm">
-                    <span>{idx + 1}. {x.design_name} ({x.size})</span>
-                    <span className="font-medium">{x.sold_quantity || 0}개 판매</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-lg">구매율 높은 아이템 TOP 5</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>순위</TableHead>
+                            <TableHead>디자인명</TableHead>
+                            <TableHead>사이즈</TableHead>
+                            <TableHead className="text-right">판매 수량</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                         {sortedPurchaseItems.length === 0 ? (
+                            <TableRow><TableCell colSpan={4} className="text-center">데이터 없음</TableCell></TableRow>
+                        ) : sortedPurchaseItems.map((item, idx) => (
+                            <TableRow key={idx}>
+                                <TableCell>{idx + 1}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell>{item.size}</TableCell>
+                                <TableCell className="text-right font-medium">{item.count}개</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

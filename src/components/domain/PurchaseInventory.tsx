@@ -70,7 +70,18 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
   };
 
   const updateDesignSize = async (id: string, field: string, value: any) => {
-    if (!canEdit) return;
+    if (!canEdit) return; // Explicit check, though SortableTableRow should also handle it
+
+    // Only Managers and Admins can edit "Total Quantity" and "Sales Price" (which is rental_price in schema or purchase_price?)
+    // Note: Schema uses 'rental_price' for price in 'design_size_inventory' generally, but we added 'purchase_price'.
+    // If this component uses 'rental_price' as sales price, we keep it. If it uses 'purchase_price', we use that.
+    // Looking at the 'newDesignSize' state, it uses 'rental_price' as "판매가".
+
+    if ((field === 'total_quantity' || field === 'rental_price') && !canEdit) {
+         toast({ title: '권한 없음', description: '수정 권한이 없습니다.', variant: 'destructive' });
+         return;
+    }
+
     try {
       const { error } = await supabase.from('design_size_inventory').update({ [field]: value }).eq('id', id);
       if (error) throw error;
@@ -155,7 +166,7 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
                   <TableHead>총 수량</TableHead>
                   <TableHead>판매됨</TableHead>
                   {/* <TableHead>출고완료</TableHead> -- Removed as per request */}
-                  <TableHead>ATS</TableHead>
+                  <TableHead>구매 가능 수량</TableHead>
                   <TableHead>주문필요량</TableHead>
                   {canEdit && <TableHead>삭제</TableHead>}
                 </TableRow>

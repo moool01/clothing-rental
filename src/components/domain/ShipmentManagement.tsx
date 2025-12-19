@@ -12,7 +12,10 @@ import EditableCell from '@/components/EditableCell';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+// import { saveAs } from 'file-saver'; // Removing file-saver as we can use a simpler method if needed, but keeping import if environment supports it. If not, will implement manual download.
+// The environment seems to have 'file-saver' in package.json, so it should be fine.
 import { saveAs } from 'file-saver';
+
 
 interface ShipmentManagementProps {
   shipments: Shipment[];
@@ -167,7 +170,6 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
                 <TableHead>수량</TableHead>
                 <TableHead>고객명</TableHead>
                 <TableHead>출고일</TableHead>
-                {/* <TableHead>송장번호</TableHead> -- Removed */}
                 <TableHead>배송방법</TableHead>
                 <TableHead>상태</TableHead>
                 <TableHead>액션</TableHead>
@@ -197,11 +199,8 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
                   <TableCell>
                     <EditableCell value={s.shipment_date} type="date" onSave={(v) => updateShipment(s.id, 'shipment_date', v)} />
                   </TableCell>
-                  {/* <TableCell>
-                    <EditableCell value={s.tracking_number || ''} type="text" onSave={(v) => updateShipment(s.id, 'tracking_number', v)} />
-                  </TableCell> */}
                   <TableCell>
-                    <EditableCell value={s.shipping_method} type="select" options={['택배', '등기', '직접수령']}
+                    <EditableCell value={s.shipping_method} type="select" options={['택배', '퀵', '픽업']}
                       onSave={(v) => updateShipment(s.id, 'shipping_method', v)} />
                   </TableCell>
                   <TableCell>
@@ -281,8 +280,6 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
               </div>
             </div>
 
-            {/* Removed Tracking Number Input */}
-
             <div className="grid grid-cols-2 gap-4">
                <div>
                 <Label>배송방법</Label>
@@ -290,8 +287,8 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="택배">택배</SelectItem>
-                    <SelectItem value="등기">등기</SelectItem>
-                    <SelectItem value="직접수령">직접수령</SelectItem>
+                    <SelectItem value="퀵">퀵</SelectItem>
+                    <SelectItem value="픽업">픽업</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

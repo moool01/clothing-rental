@@ -12,6 +12,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import EditableCell from '@/components/EditableCell';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
 
 interface RentalManagementProps {
   rentals: Rental[];
@@ -40,7 +47,7 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
   const [isRentalDialogOpen, setIsRentalDialogOpen] = useState(false);
   const [newRental, setNewRental] = useState({
     customer_id: '', design_code: '', design_name: '', size: '', quantity: 1,
-    rental_date: '', return_due_date: '', rental_price: 0
+    rental_date: '', return_due_date: '', rental_price: 0, shipping_method: '택배'
   });
 
   // Sorting state
@@ -50,6 +57,11 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
   // Filter state
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [shippingFilter, setShippingFilter] = useState<string>('all');
+
+  // Bulk Selection state
+  const [selectedRentalIds, setSelectedRentalIds] = useState<Set<string>>(new Set());
 
   const addRental = async () => {
     try {
@@ -57,7 +69,7 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
         .from('rentals')
         .insert([{
           ...newRental,
-          status: '대여중',
+          status: '대여예정', // Default as per typical flow
           company_id: COMPANY_ID,
         }])
         .select(`*, customers(*)`);
@@ -65,7 +77,7 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
       if (error) throw error;
 
       setRentals(prev => [data?.[0], ...prev]);
-      setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0 });
+      setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0, shipping_method: '택배' });
       setIsRentalDialogOpen(false);
       setRentalWeeklyInventory([]);
 
@@ -79,7 +91,10 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
 
   const updateRental = async (id: string, field: string, value: any) => {
     try {
-      const { error } = await supabase.from('rentals').update({ [field]: value }).eq('id', id);
+      // Handle the rename from delivery_method to shipping_method
+      const dbField = field === 'delivery_method' ? 'shipping_method' : field;
+
+      const { error } = await supabase.from('rentals').update({ [dbField]: value }).eq('id', id);
       if (error) throw error;
 
       if (field === 'status') setTimeout(fetchData, 120);
@@ -102,6 +117,46 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
     }
   };
 
+  // Bulk Actions
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(filteredRentals.map(r => r.id));
+      setSelectedRentalIds(allIds);
+    } else {
+      setSelectedRentalIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedRentalIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedRentalIds(newSelected);
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    if (selectedRentalIds.size === 0) return;
+
+    try {
+      const ids = Array.from(selectedRentalIds);
+      const { error } = await supabase
+        .from('rentals')
+        .update({ status: newStatus })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      await fetchData();
+      setSelectedRentalIds(new Set()); // Clear selection
+      toast({ title: '일괄 수정 완료', description: `${ids.length}건의 상태가 변경되었습니다.` });
+    } catch (e: any) {
+      toast({ title: '일괄 수정 실패', description: e?.message || '오류', variant: 'destructive' });
+    }
+  };
+
   const handleSort = (field: keyof Rental) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -113,10 +168,28 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
 
   const filteredRentals = rentals.filter(r => {
     const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesShipping = shippingFilter === 'all' || r.shipping_method === shippingFilter;
     const matchesSearch = searchQuery === '' ||
         r.customers?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.design_name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+
+    let matchesDate = true;
+    if (dateRange?.from) {
+        const rentalDate = new Date(r.rental_date);
+        const from = new Date(dateRange.from);
+        from.setHours(0,0,0,0);
+        rentalDate.setHours(0,0,0,0);
+
+        if (dateRange.to) {
+            const to = new Date(dateRange.to);
+            to.setHours(23,59,59,999);
+             matchesDate = rentalDate >= from && rentalDate <= to;
+        } else {
+             matchesDate = rentalDate.getTime() === from.getTime();
+        }
+    }
+
+    return matchesStatus && matchesSearch && matchesDate && matchesShipping;
   });
 
   const sortedRentals = [...filteredRentals].sort((a, b) => {
@@ -135,7 +208,6 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
     } else if (typeof aValue === 'number' && typeof bValue === 'number') {
       comparison = aValue - bValue;
     } else {
-        // fallback
         comparison = String(aValue).localeCompare(String(bValue));
     }
 
@@ -145,40 +217,17 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>대여 관리</CardTitle>
-            <CardDescription>의류 대여 현황을 관리합니다</CardDescription>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-2 items-center">
-            <div className="flex gap-2">
-                 <Input
-                    placeholder="고객명, 디자인명 검색"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-[200px]"
-                 />
-                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="상태 필터" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">전체 상태</SelectItem>
-                        <SelectItem value="대여예정">대여예정</SelectItem>
-                        <SelectItem value="출고완료">출고완료</SelectItem>
-                        <SelectItem value="대여중">대여중</SelectItem>
-                        <SelectItem value="반납완료">반납완료</SelectItem>
-                        <SelectItem value="연체">연체</SelectItem>
-                    </SelectContent>
-                 </Select>
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>대여 관리</CardTitle>
+              <CardDescription>의류 대여 현황을 관리합니다</CardDescription>
             </div>
 
-            {/* Sort Controls could go here, but column headers are clickable */}
-            <Dialog open={isRentalDialogOpen} onOpenChange={setIsRentalDialogOpen}>
+             <Dialog open={isRentalDialogOpen} onOpenChange={setIsRentalDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => {
-                  setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0 });
+                  setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0, shipping_method: '택배' });
                   setRentalWeeklyInventory([]);
                 }}>
                   <Plus className="h-4 w-4 mr-2" />대여 등록
@@ -224,6 +273,18 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                       value={newRental.return_due_date}
                       onChange={(e) => setNewRental({ ...newRental, return_due_date: e.target.value })}
                     />
+                  </div>
+
+                  <div>
+                    <Label>배송방법</Label>
+                    <Select value={newRental.shipping_method} onValueChange={(v) => setNewRental({ ...newRental, shipping_method: v })}>
+                        <SelectTrigger><SelectValue placeholder="배송방법 선택" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="택배">택배</SelectItem>
+                            <SelectItem value="퀵">퀵</SelectItem>
+                            <SelectItem value="픽업">픽업</SelectItem>
+                        </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
@@ -277,6 +338,94 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
               </DialogContent>
             </Dialog>
           </div>
+
+          <div className="flex flex-wrap gap-2 items-center bg-gray-50 p-2 rounded-lg border">
+            <div className="flex items-center gap-2">
+                 <Label className="text-xs">기간</Label>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="date"
+                        variant={"outline"}
+                        className={cn(
+                            "w-[240px] justify-start text-left font-normal h-8",
+                            !dateRange && "text-muted-foreground"
+                        )}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                            dateRange.to ? (
+                            <>
+                                {format(dateRange.from, "yyyy-MM-dd")} -{" "}
+                                {format(dateRange.to, "yyyy-MM-dd")}
+                            </>
+                            ) : (
+                            format(dateRange.from, "yyyy-MM-dd")
+                            )
+                        ) : (
+                            <span>대여일 선택</span>
+                        )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
+
+            <div className="flex items-center gap-2">
+                 <Label className="text-xs">상태</Label>
+                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[120px] h-8">
+                        <SelectValue placeholder="상태 필터" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="대여예정">대여예정</SelectItem>
+                        <SelectItem value="출고완료">출고완료</SelectItem>
+                        <SelectItem value="대여중">대여중</SelectItem>
+                        <SelectItem value="반납완료">반납완료</SelectItem>
+                        <SelectItem value="연체">연체</SelectItem>
+                    </SelectContent>
+                 </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <Label className="text-xs">배송</Label>
+                <Select value={shippingFilter} onValueChange={setShippingFilter}>
+                    <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue placeholder="배송 필터" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="택배">택배</SelectItem>
+                        <SelectItem value="퀵">퀵</SelectItem>
+                        <SelectItem value="픽업">픽업</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <Input
+                placeholder="고객명, 디자인명 검색"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-[200px] h-8"
+            />
+
+            {selectedRentalIds.size > 0 && (
+                <div className="ml-auto flex gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => handleBulkStatusChange('대여중')}>대여중 처리</Button>
+                    <Button variant="secondary" size="sm" onClick={() => handleBulkStatusChange('반납완료')}>반납 처리</Button>
+                </div>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -285,6 +434,12 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[30px]">
+                    <Checkbox
+                        checked={filteredRentals.length > 0 && selectedRentalIds.size === filteredRentals.length}
+                        onCheckedChange={(checked: boolean) => handleSelectAll(checked)}
+                    />
+                </TableHead>
                 <TableHead>고객명</TableHead>
                 <TableHead>디자인명</TableHead>
                 <TableHead>사이즈</TableHead>
@@ -294,16 +449,21 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                 </TableHead>
                 <TableHead>반납예정일</TableHead>
                 <TableHead>대여료</TableHead>
-                <TableHead className="cursor-pointer hover:bg-gray-100" onClick={() => handleSort('delivery_method')}>
-                    배송방법 {sortField === 'delivery_method' && (sortDirection === 'asc' ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />)}
+                <TableHead className="cursor-pointer hover:bg-gray-100" onClick={() => handleSort('shipping_method')}>
+                    배송방법 {sortField === 'shipping_method' && (sortDirection === 'asc' ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />)}
                 </TableHead>
                 <TableHead>상태</TableHead>
-                <TableHead>액션</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedRentals.map((r) => (
-                <TableRow key={r.id}>
+                <TableRow key={r.id} className={selectedRentalIds.has(r.id) ? "bg-blue-50" : ""}>
+                  <TableCell>
+                    <Checkbox
+                        checked={selectedRentalIds.has(r.id)}
+                        onCheckedChange={(checked: boolean) => handleSelectOne(r.id, checked)}
+                    />
+                  </TableCell>
                   <TableCell>{r.customers?.name || '-'}</TableCell>
                   <TableCell>
                     <EditableCell value={r.design_name} type="text" onSave={(v) => updateRental(r.id, 'design_name', v)} />
@@ -324,19 +484,12 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                     <EditableCell value={r.rental_price} type="number" onSave={(v) => updateRental(r.id, 'rental_price', Number(v))} />
                   </TableCell>
                   <TableCell>
-                    <EditableCell value={r.delivery_method || ''} type="select" options={['택배', '퀵', '직접수령']} placeholder="선택"
-                      onSave={(v) => updateRental(r.id, 'delivery_method', v)} />
+                    <EditableCell value={r.shipping_method || ''} type="select" options={['택배', '퀵', '픽업']} placeholder="선택"
+                      onSave={(v) => updateRental(r.id, 'shipping_method', v)} />
                   </TableCell>
                   <TableCell>
                     <EditableCell value={r.status} type="select" options={['대여예정', '출고완료', '대여중', '반납완료', '연체']}
                       onSave={(v) => updateRental(r.id, 'status', v)} />
-                  </TableCell>
-                  <TableCell>
-                    {r.status === '반납완료' && (
-                      <Button variant="ghost" size="sm" onClick={() => deleteRental(r.id)} className="text-red-600 hover:text-red-800">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
                   </TableCell>
                 </TableRow>
               ))}

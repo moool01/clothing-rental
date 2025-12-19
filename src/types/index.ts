@@ -85,6 +85,10 @@ export interface Purchase {
   purchase_date: string;
   purchase_price: number;
   status: string;
+  pickup_method?: string | null;        // 픽업 / 퀵 / 택배
+  return_method?: string | null;        // 매장반납 / 퀵 / 택배
+  expected_ship_date?: string | null;   // 출고 예정일
+
   customers?: Customer | null;
   company_id?: string | null;
   created_at?: string;

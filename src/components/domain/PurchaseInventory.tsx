@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
@@ -33,18 +33,34 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
   const { toast } = useToast();
 
   const [isDesignDialogOpen, setIsDesignDialogOpen] = useState(false);
+
   const [newDesignSize, setNewDesignSize] = useState({
-    design_code: '', design_name: '', size: '',
-    rental_price: 0, total_quantity: 0, inventory_type: '구매용'
+    design_code: '',
+    design_name: '',
+    size: '',
+    rental_price: 0,
+    total_quantity: 0,
+    inventory_type: '구매용',
   });
+
+  // ✅ 디자인명 검색 state
+  const [searchDesignName, setSearchDesignName] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const purchaseRows = inventory.filter(x => x.inventory_type === '구매용');
   const canEdit = role === 'manager' || role === 'admin';
+
+  // ✅ 디자인명 검색 포함된 구매용 재고
+  const purchaseRows = inventory.filter(x =>
+    x.inventory_type === '구매용' &&
+    (
+      searchDesignName === '' ||
+      x.design_name.toLowerCase().includes(searchDesignName.toLowerCase())
+    )
+  );
 
   const addDesignSize = async () => {
     try {
@@ -60,19 +76,36 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
       if (error) throw error;
 
       setInventory(prev => [...prev, data?.[0]]);
-      setNewDesignSize({ design_code: '', design_name: '', size: '', rental_price: 0, total_quantity: 0, inventory_type: '구매용' });
+      setNewDesignSize({
+        design_code: '',
+        design_name: '',
+        size: '',
+        rental_price: 0,
+        total_quantity: 0,
+        inventory_type: '구매용',
+      });
       setIsDesignDialogOpen(false);
 
-      toast({ title: '재고 추가 완료', description: '새 디자인+사이즈가 추가되었습니다.' });
+      toast({
+        title: '재고 추가 완료',
+        description: '새 디자인+사이즈가 추가되었습니다.',
+      });
     } catch (e: any) {
-      toast({ title: '재고 추가 실패', description: e?.message || '오류', variant: 'destructive' });
+      toast({
+        title: '재고 추가 실패',
+        description: e?.message || '오류',
+        variant: 'destructive',
+      });
     }
   };
 
   const updateDesignSize = async (id: string, field: string, value: any) => {
     if (!canEdit) return;
     try {
-      const { error } = await supabase.from('design_size_inventory').update({ [field]: value }).eq('id', id);
+      const { error } = await supabase
+        .from('design_size_inventory')
+        .update({ [field]: value })
+        .eq('id', id);
       if (error) throw error;
       await fetchData();
       toast({ title: '수정 완료', description: '데이터가 수정되었습니다.' });
@@ -84,7 +117,10 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
   const deleteDesignSize = async (id: string) => {
     if (!canEdit) return;
     try {
-      const { error } = await supabase.from('design_size_inventory').delete().eq('id', id);
+      const { error } = await supabase
+        .from('design_size_inventory')
+        .delete()
+        .eq('id', id);
       if (error) throw error;
       await fetchData();
       toast({ title: '삭제 완료', description: '삭제되었습니다.' });
@@ -101,17 +137,22 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
 
     const oldIndex = inventory.findIndex(x => x.id === active.id);
     const newIndex = inventory.findIndex(x => x.id === over.id);
-
     if (oldIndex < 0 || newIndex < 0) return;
 
     const newInventory = arrayMove(inventory, oldIndex, newIndex);
     setInventory(newInventory);
 
     const purchaseItems = newInventory.filter(x => x.inventory_type === '구매용');
-    const updates = purchaseItems.map((x, idx) => ({ id: x.id, display_order: idx }));
+    const updates = purchaseItems.map((x, idx) => ({
+      id: x.id,
+      display_order: idx,
+    }));
 
     for (const u of updates) {
-       await supabase.from('design_size_inventory').update({ display_order: u.display_order }).eq('id', u.id);
+      await supabase
+        .from('design_size_inventory')
+        .update({ display_order: u.display_order })
+        .eq('id', u.id);
     }
   };
 
@@ -123,20 +164,32 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
             <CardTitle className="text-purple-600">구매용 재고 관리</CardTitle>
             <CardDescription>판매 비즈니스용 재고를 관리합니다</CardDescription>
           </div>
+
           {canEdit && (
-            <div className="flex gap-2">
-              <Button onClick={() => {
+            <Button
+              onClick={() => {
                 setNewDesignSize({ ...newDesignSize, inventory_type: '구매용' });
                 setIsDesignDialogOpen(true);
-              }}>
-                <Plus className="h-4 w-4 mr-2" />구매용 재고 추가
-              </Button>
-            </div>
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              구매용 재고 추가
+            </Button>
           )}
         </div>
       </CardHeader>
 
       <CardContent>
+        {/* ✅ 디자인명 검색 */}
+        <div className="mb-4">
+          <Input
+            placeholder="디자인명 검색"
+            value={searchDesignName}
+            onChange={(e) => setSearchDesignName(e.target.value)}
+            className="w-[260px]"
+          />
+        </div>
+
         <div className="overflow-x-auto">
           <DndContext
             sensors={sensors}
@@ -147,15 +200,14 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="w-8" />
                   <TableHead>상품코드</TableHead>
                   <TableHead>디자인명</TableHead>
                   <TableHead>사이즈</TableHead>
                   <TableHead>판매가</TableHead>
                   <TableHead>총 수량</TableHead>
                   <TableHead>판매됨</TableHead>
-                  {/* <TableHead>출고완료</TableHead> -- Removed as per request */}
-                  <TableHead>ATS</TableHead>
+                  <TableHead>구매가능수량</TableHead>
                   <TableHead>주문필요량</TableHead>
                   {canEdit && <TableHead>삭제</TableHead>}
                 </TableRow>
@@ -190,36 +242,66 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
             <DialogTitle>새 디자인+사이즈 추가</DialogTitle>
             <DialogDescription>새로운 디자인+사이즈 조합을 등록합니다</DialogDescription>
           </DialogHeader>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="design_code">디자인 코드</Label>
-              <Input id="design_code" value={newDesignSize.design_code}
-                onChange={(e) => setNewDesignSize({ ...newDesignSize, design_code: e.target.value })} />
+              <Label>디자인 코드</Label>
+              <Input
+                value={newDesignSize.design_code}
+                onChange={(e) =>
+                  setNewDesignSize({ ...newDesignSize, design_code: e.target.value })
+                }
+              />
             </div>
             <div>
-              <Label htmlFor="design_name">디자인명</Label>
-              <Input id="design_name" value={newDesignSize.design_name}
-                onChange={(e) => setNewDesignSize({ ...newDesignSize, design_name: e.target.value })} />
+              <Label>디자인명</Label>
+              <Input
+                value={newDesignSize.design_name}
+                onChange={(e) =>
+                  setNewDesignSize({ ...newDesignSize, design_name: e.target.value })
+                }
+              />
             </div>
             <div>
-              <Label htmlFor="size">사이즈</Label>
-              <Input id="size" value={newDesignSize.size}
-                onChange={(e) => setNewDesignSize({ ...newDesignSize, size: e.target.value })} />
+              <Label>사이즈</Label>
+              <Input
+                value={newDesignSize.size}
+                onChange={(e) =>
+                  setNewDesignSize({ ...newDesignSize, size: e.target.value })
+                }
+              />
             </div>
             <div>
-              <Label htmlFor="rental_price">판매가</Label>
-              <Input id="rental_price" type="number" value={newDesignSize.rental_price}
-                onChange={(e) => setNewDesignSize({ ...newDesignSize, rental_price: Number(e.target.value) })} />
+              <Label>판매가</Label>
+              <Input
+                type="number"
+                value={newDesignSize.rental_price}
+                onChange={(e) =>
+                  setNewDesignSize({ ...newDesignSize, rental_price: Number(e.target.value) })
+                }
+              />
             </div>
             <div>
-              <Label htmlFor="total_quantity">총 수량</Label>
-              <Input id="total_quantity" type="number" value={newDesignSize.total_quantity}
-                onChange={(e) => setNewDesignSize({ ...newDesignSize, total_quantity: Number(e.target.value) })} />
+              <Label>총 수량</Label>
+              <Input
+                type="number"
+                value={newDesignSize.total_quantity}
+                onChange={(e) =>
+                  setNewDesignSize({ ...newDesignSize, total_quantity: Number(e.target.value) })
+                }
+              />
             </div>
             <div>
               <Label>재고 타입</Label>
-              <Select value={newDesignSize.inventory_type} onValueChange={(v) => setNewDesignSize({ ...newDesignSize, inventory_type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={newDesignSize.inventory_type}
+                onValueChange={(v) =>
+                  setNewDesignSize({ ...newDesignSize, inventory_type: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="대여용">대여용</SelectItem>
                   <SelectItem value="구매용">구매용</SelectItem>
@@ -227,8 +309,11 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
               </Select>
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDesignDialogOpen(false)}>취소</Button>
+            <Button variant="outline" onClick={() => setIsDesignDialogOpen(false)}>
+              취소
+            </Button>
             <Button onClick={addDesignSize}>추가</Button>
           </DialogFooter>
         </DialogContent>

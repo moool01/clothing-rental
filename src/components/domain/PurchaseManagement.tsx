@@ -39,6 +39,10 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
     quantity: 1,
     purchase_date: '',
     purchase_price: 0,
+
+    // ✅ 추가: 수령 / 반납 방법
+    pickup_method: '픽업',
+    return_method: '매장반납',
   });
 
   // 🔍 필터 상태
@@ -78,7 +82,6 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
       const aVal = a[sortKey];
       const bVal = b[sortKey];
 
-      // ✅ 날짜 값 없는 경우 항상 맨 아래
       if (!aVal && !bVal) return 0;
       if (!aVal) return 1;
       if (!bVal) return -1;
@@ -117,6 +120,9 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
         quantity: 1,
         purchase_date: '',
         purchase_price: 0,
+
+        pickup_method: '픽업',
+        return_method: '매장반납',
       });
 
       setTimeout(fetchData, 120);
@@ -289,6 +295,47 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* ✅ 수령 / 반납 방법 추가 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>수령 방법</Label>
+                    <Select
+                      value={newPurchase.pickup_method}
+                      onValueChange={(v) =>
+                        setNewPurchase({ ...newPurchase, pickup_method: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="수령 방법 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="픽업">픽업</SelectItem>
+                        <SelectItem value="퀵">퀵</SelectItem>
+                        <SelectItem value="택배">택배</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>반납 방법</Label>
+                    <Select
+                      value={newPurchase.return_method}
+                      onValueChange={(v) =>
+                        setNewPurchase({ ...newPurchase, return_method: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="반납 방법 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="매장반납">매장반납</SelectItem>
+                        <SelectItem value="퀵">퀵</SelectItem>
+                        <SelectItem value="택배">택배</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               <DialogFooter>
@@ -306,26 +353,6 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
       </CardHeader>
 
       <CardContent>
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label>고객명 검색</Label>
-            <Input
-              placeholder="고객명을 입력하세요"
-              value={searchCustomer}
-              onChange={(e) => setSearchCustomer(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label>출고 예정일</Label>
-            <Input
-              type="date"
-              value={filterShipmentDate}
-              onChange={(e) => setFilterShipmentDate(e.target.value)}
-            />
-          </div>
-        </div>
-
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -334,20 +361,12 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
                 <TableHead>사이즈</TableHead>
                 <TableHead>수량</TableHead>
                 <TableHead>고객명</TableHead>
+                <TableHead>구매일</TableHead>
+                <TableHead>출고 예정일</TableHead>
 
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('purchase_date')}
-                >
-                  구매일 {sortKey === 'purchase_date' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
-                </TableHead>
-
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('expected_ship_date')}
-                >
-                  출고 예정일 {sortKey === 'expected_ship_date' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
-                </TableHead>
+                {/* ✅ 추가 컬럼 */}
+                <TableHead>수령방법</TableHead>
+                <TableHead>반납방법</TableHead>
 
                 <TableHead>구매가</TableHead>
                 <TableHead>액션</TableHead>
@@ -355,41 +374,37 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
             </TableHeader>
 
             <TableBody>
-              {filteredPurchases.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    구매 기록이 없습니다
+              {filteredPurchases.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{p.design_name}</TableCell>
+                  <TableCell><Badge variant="secondary">{p.size}</Badge></TableCell>
+                  <TableCell>{p.quantity}</TableCell>
+                  <TableCell>{p.customers?.name}</TableCell>
+                  <TableCell>{p.purchase_date}</TableCell>
+                  <TableCell>{p.expected_ship_date || '-'}</TableCell>
+
+                  {/* ✅ 추가 데이터 */}
+                  <TableCell>
+                    <Badge variant="outline">{p.pickup_method || '-'}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{p.return_method || '-'}</Badge>
+                  </TableCell>
+
+                  <TableCell>
+                    {(p.purchase_price || 0).toLocaleString()}원
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deletePurchase(p.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
                   </TableCell>
                 </TableRow>
-              ) : (
-                filteredPurchases.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.design_name}</TableCell>
-                    <TableCell><Badge variant="secondary">{p.size}</Badge></TableCell>
-                    <TableCell>
-                      <Badge className="bg-purple-100 text-purple-800">
-                        {p.quantity}개
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{p.customers?.name || '-'}</TableCell>
-                    <TableCell>{p.purchase_date}</TableCell>
-                    <TableCell>{p.expected_ship_date || '-'}</TableCell>
-                    <TableCell>
-                      {(p.purchase_price || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deletePurchase(p.id)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
         </div>

@@ -40,7 +40,8 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
   const [isRentalDialogOpen, setIsRentalDialogOpen] = useState(false);
   const [newRental, setNewRental] = useState({
     customer_id: '', design_code: '', design_name: '', size: '', quantity: 1,
-    rental_date: '', return_due_date: '', rental_price: 0
+    rental_date: '', return_due_date: '', rental_price: 0, pickup_method: '픽업',
+    return_method: '매장반납',
   });
 
   // Sorting state
@@ -66,6 +67,8 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
         .from('rentals')
         .insert([{
           ...newRental,
+          delivery_method: `수령-${newRental.pickup_method} / 반납-${newRental.return_method}`,
+
           status: '대여예정',
           company_id: COMPANY_ID,
         }])
@@ -260,7 +263,8 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                 </Button>
               </DialogTrigger>
 
-              <DialogContent>
+              <DialogContent className="max-h-[80vh] overflow-y-auto">
+
                 <DialogHeader>
                   <DialogTitle>새 대여 등록</DialogTitle>
                   <DialogDescription>새로운 대여를 등록합니다</DialogDescription>
@@ -337,6 +341,46 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                       </Select>
                     )}
                   </div>
+                  {/* ✅ 수령 / 반납 방법 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>수령 방법</Label>
+                      <Select
+                        value={newRental.pickup_method}
+                        onValueChange={(v) =>
+                          setNewRental({ ...newRental, pickup_method: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="수령 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="픽업">픽업</SelectItem>
+                          <SelectItem value="퀵">퀵</SelectItem>
+                          <SelectItem value="택배">택배</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>반납 방법</Label>
+                      <Select
+                        value={newRental.return_method}
+                        onValueChange={(v) =>
+                          setNewRental({ ...newRental, return_method: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="반납 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="매장반납">매장반납</SelectItem>
+                          <SelectItem value="퀵">퀵</SelectItem>
+                          <SelectItem value="택배">택배</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
                   <div>
                     <Label>대여 수량</Label>
@@ -383,10 +427,21 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                 </TableHead>
                 <TableHead>반납예정일</TableHead>
                 <TableHead>대여료</TableHead>
-                <TableHead className="cursor-pointer hover:bg-gray-100" onClick={() => handleSort('delivery_method')}>
-                  수령 / 반납 {sortField === 'delivery_method' && (sortDirection === 'asc' ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />)}
+                <TableHead>수령방법</TableHead>
+                <TableHead>반납방법</TableHead>
+
+                <TableHead
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('status')}
+                >
+                  상태{' '}
+                  {sortField === 'status' && (
+                    sortDirection === 'asc'
+                      ? <ArrowUp className="inline h-3 w-3" />
+                      : <ArrowDown className="inline h-3 w-3" />
+                  )}
                 </TableHead>
-                <TableHead>상태</TableHead>
+
                 <TableHead>액션</TableHead>
               </TableRow>
             </TableHeader>
@@ -435,23 +490,52 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                   <TableCell>
                     <EditableCell value={r.rental_price} type="number" onSave={(v) => updateRental(r.id, 'rental_price', Number(v))} />
                   </TableCell>
-
+                  {/* 수령 방법 */}
                   <TableCell>
                     <EditableCell
-                      value={r.delivery_method || ''}
+                      value={
+                        r.delivery_method
+                          ? r.delivery_method.split('/')[0]?.replace('수령-', '').trim()
+                          : ''
+                      }
                       type="select"
-                      options={[
-                        '수령-픽업',
-                        '수령-퀵',
-                        '수령-택배',
-                        '반납-직접',
-                        '반납-퀵',
-                        '반납-택배',
-                      ]}
-                      placeholder="선택"
-                      onSave={(v) => updateRental(r.id, 'delivery_method', v)}
+                      options={['픽업', '퀵', '택배']}
+                      placeholder="수령 선택"
+                      onSave={(v) => {
+                        const returnPart =
+                          r.delivery_method?.split('/')[1]?.trim() || '반납-매장반납';
+                        updateRental(
+                          r.id,
+                          'delivery_method',
+                          `수령-${v} / ${returnPart}`
+                        );
+                      }}
                     />
                   </TableCell>
+
+                  {/* 반납 방법 */}
+                  <TableCell>
+                    <EditableCell
+                      value={
+                        r.delivery_method
+                          ? r.delivery_method.split('/')[1]?.replace('반납-', '').trim()
+                          : ''
+                      }
+                      type="select"
+                      options={['매장반납', '퀵', '택배']}
+                      placeholder="반납 선택"
+                      onSave={(v) => {
+                        const pickupPart =
+                          r.delivery_method?.split('/')[0]?.trim() || '수령-픽업';
+                        updateRental(
+                          r.id,
+                          'delivery_method',
+                          `${pickupPart} / 반납-${v}`
+                        );
+                      }}
+                    />
+                  </TableCell>
+
 
                   <TableCell>
                     <EditableCell

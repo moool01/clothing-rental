@@ -16,6 +16,8 @@ create table public.customers (
 );
 
 -- Design Size Inventory Table
+-- Note: 'available_quantity' and 'rented_quantity' are included for compatibility with the frontend interface.
+-- However, the weekly logic relies on dynamic calculations (see get_weekly_inventory_stats).
 create table public.design_size_inventory (
   id uuid default gen_random_uuid() primary key,
   design_code text not null,
@@ -27,18 +29,22 @@ create table public.design_size_inventory (
   color text,
   rental_price integer default 0,
   purchase_price integer default 0,
+
   total_quantity integer default 0,
-  rented_quantity integer default 0,
-  available_quantity integer default 0,
+  rented_quantity integer default 0, -- Snapshot/Legacy field
+  available_quantity integer default 0, -- Snapshot/Legacy field
+
   sold_quantity integer default 0,
   available_for_sale integer default 0,
   outstanding_shipment integer default 0,
   shippable integer default 0,
   order_required integer default 0,
+
   condition text,
-  inventory_type text not null,
+  inventory_type text not null, -- '대여용' | '구매용'
   display_order integer,
   company_id text,
+
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -51,13 +57,16 @@ create table public.rentals (
   design_name text not null,
   size text not null,
   quantity integer default 1,
+
   rental_date timestamp with time zone not null,
   return_due_date timestamp with time zone not null,
   return_date timestamp with time zone,
+
   rental_price integer default 0,
-  status text not null,
+  status text not null, -- '대여예정', '출고완료', '대여중', '반납완료', '연체'
   delivery_method text,
   notes text,
+
   company_id text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -99,21 +108,20 @@ create table public.shipments (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable Row Level Security (RLS)
+-- RLS Policies
 alter table public.customers enable row level security;
 alter table public.design_size_inventory enable row level security;
 alter table public.rentals enable row level security;
 alter table public.purchases enable row level security;
 alter table public.shipments enable row level security;
 
--- Create policies (Example: Allow all access for now, can be restricted later)
 create policy "Allow all access for customers" on public.customers for all using (true);
 create policy "Allow all access for inventory" on public.design_size_inventory for all using (true);
 create policy "Allow all access for rentals" on public.rentals for all using (true);
 create policy "Allow all access for purchases" on public.purchases for all using (true);
 create policy "Allow all access for shipments" on public.shipments for all using (true);
 
--- Function to handle updated_at
+-- Updated_at Trigger
 create or replace function public.handle_updated_at()
 returns trigger as $$
 begin
@@ -122,23 +130,92 @@ begin
 end;
 $$ language plpgsql;
 
--- Triggers for updated_at
-create trigger handle_updated_at_customers
-  before update on public.customers
-  for each row execute procedure public.handle_updated_at();
+create trigger handle_updated_at_customers before update on public.customers for each row execute procedure public.handle_updated_at();
+create trigger handle_updated_at_inventory before update on public.design_size_inventory for each row execute procedure public.handle_updated_at();
+create trigger handle_updated_at_rentals before update on public.rentals for each row execute procedure public.handle_updated_at();
+create trigger handle_updated_at_purchases before update on public.purchases for each row execute procedure public.handle_updated_at();
+create trigger handle_updated_at_shipments before update on public.shipments for each row execute procedure public.handle_updated_at();
 
-create trigger handle_updated_at_inventory
-  before update on public.design_size_inventory
-  for each row execute procedure public.handle_updated_at();
+-- -----------------------------------------------------------------------------
+-- Weekly Inventory Logic
+-- -----------------------------------------------------------------------------
 
-create trigger handle_updated_at_rentals
-  before update on public.rentals
-  for each row execute procedure public.handle_updated_at();
+-- Drop existing function if any
+drop function if exists get_weekly_inventory_stats(date);
 
-create trigger handle_updated_at_purchases
-  before update on public.purchases
-  for each row execute procedure public.handle_updated_at();
+-- Function to calculate weekly reserved/available quantities
+create or replace function get_weekly_inventory_stats(start_date date)
+returns table (
+  id uuid,
+  design_code text,
+  design_name text,
+  size text,
+  total_quantity integer,
+  weekly_rented_quantity bigint,
+  weekly_available_quantity bigint
+) as $$
+declare
+  week_start timestamp with time zone;
+  week_end timestamp with time zone;
+begin
+  -- Calculate Monday start and Sunday end of the given date's week
+  -- If start_date is Monday, week_start is start_date 00:00
+  -- If start_date is Sunday (0), we need to handle it.
+  -- Logic matches JS: Monday based week.
 
-create trigger handle_updated_at_shipments
-  before update on public.shipments
-  for each row execute procedure public.handle_updated_at();
+  -- trunc to day first
+  week_start := date_trunc('week', start_date) - interval '1 day'; -- date_trunc('week') is Monday usually?
+  -- PostgreSQL: date_trunc('week', ...) returns Monday of the week.
+  -- So we just use date_trunc('week', start_date).
+  -- Note: If user passes any day of week, this snaps to Monday.
+  week_start := date_trunc('week', start_date);
+
+  -- Make it timezone aware if needed, or assume input is local date?
+  -- We assume UTC or standard DB time.
+
+  -- End of week: Sunday 23:59:59.999
+  week_end := week_start + interval '6 days' + interval '23 hours 59 minutes 59 seconds';
+
+  return query
+  with weekly_rentals as (
+    select
+      -- Normalize codes to match loosely as per JS logic
+      lower(trim(r.design_code)) as norm_design_code,
+      lower(trim(r.size)) as norm_size,
+      sum(r.quantity) as reserved_qty
+    from
+      public.rentals r
+    where
+      -- Filter by active statuses (excluding returned)
+      r.status in ('대여예정', '출고완료', '대여중', '연체')
+      and
+      -- Overlap Check:
+      -- Rental Start <= Week End AND Rental End >= Week Start
+      -- Rental End is return_due_date or rental_date if null
+      (r.rental_date <= week_end)
+      and
+      (coalesce(r.return_due_date, r.rental_date) >= week_start)
+    group by
+      lower(trim(r.design_code)),
+      lower(trim(r.size))
+  )
+  select
+    i.id,
+    i.design_code,
+    i.design_name,
+    i.size,
+    i.total_quantity,
+    coalesce(wr.reserved_qty, 0) as weekly_rented_quantity,
+    greatest(0, i.total_quantity - coalesce(wr.reserved_qty, 0)) as weekly_available_quantity
+  from
+    public.design_size_inventory i
+  left join
+    weekly_rentals wr
+    on lower(trim(i.design_code)) = wr.norm_design_code
+    and lower(trim(i.size)) = wr.norm_size
+  where
+    i.inventory_type = '대여용'
+  order by
+    i.design_code asc, i.display_order asc;
+end;
+$$ language plpgsql;

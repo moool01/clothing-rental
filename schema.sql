@@ -173,9 +173,9 @@ begin
     from
       public.rentals r
     where
-      -- Include '반납완료' (Returned) because it consumes the slot for the week if dates overlap.
-      -- Exclude only truly inactive rows (e.g. cancelled if any).
-      r.status in ('대여예정', '출고완료', '대여중', '반납완료', '연체')
+      -- Exclude only truly inactive rows (e.g. cancelled).
+      -- All other statuses (including '반납완료') count as reserved if they overlap the week.
+      r.status not in ('취소')
       and
       -- Overlap Check using DATE boundaries:
       -- Rental Start <= Week End AND Rental End >= Week Start

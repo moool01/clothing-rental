@@ -155,26 +155,13 @@ returns table (
   weekly_available_quantity bigint
 ) as $$
 declare
-  week_start timestamp with time zone;
-  week_end timestamp with time zone;
+  week_start date;
+  week_end date;
 begin
   -- Calculate Monday start and Sunday end of the given date's week
-  -- If start_date is Monday, week_start is start_date 00:00
-  -- If start_date is Sunday (0), we need to handle it.
-  -- Logic matches JS: Monday based week.
-
-  -- trunc to day first
-  week_start := date_trunc('week', start_date) - interval '1 day'; -- date_trunc('week') is Monday usually?
-  -- PostgreSQL: date_trunc('week', ...) returns Monday of the week.
-  -- So we just use date_trunc('week', start_date).
-  -- Note: If user passes any day of week, this snaps to Monday.
-  week_start := date_trunc('week', start_date);
-
-  -- Make it timezone aware if needed, or assume input is local date?
-  -- We assume UTC or standard DB time.
-
-  -- End of week: Sunday 23:59:59.999
-  week_end := week_start + interval '6 days' + interval '23 hours 59 minutes 59 seconds';
+  -- Postgres date_trunc('week', ...) returns Monday of the week.
+  week_start := date_trunc('week', start_date)::date;
+  week_end := week_start + 6; -- Sunday
 
   return query
   with weekly_rentals as (
@@ -186,15 +173,15 @@ begin
     from
       public.rentals r
     where
-      -- Filter by active statuses (excluding returned)
-      r.status in ('대여예정', '출고완료', '대여중', '연체')
+      -- Include '반납완료' (Returned) because it consumes the slot for the week if dates overlap.
+      -- Exclude only truly inactive rows (e.g. cancelled if any).
+      r.status in ('대여예정', '출고완료', '대여중', '반납완료', '연체')
       and
-      -- Overlap Check:
+      -- Overlap Check using DATE boundaries:
       -- Rental Start <= Week End AND Rental End >= Week Start
-      -- Rental End is return_due_date or rental_date if null
-      (r.rental_date <= week_end)
+      (r.rental_date::date <= week_end)
       and
-      (coalesce(r.return_due_date, r.rental_date) >= week_start)
+      (coalesce(r.return_due_date, r.rental_date)::date >= week_start)
     group by
       lower(trim(r.design_code)),
       lower(trim(r.size))

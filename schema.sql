@@ -1,94 +1,144 @@
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
 -- Customers Table
-CREATE TABLE customers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    address TEXT,
-    memo TEXT, -- Added: matches schema image
-    company_id UUID,
-    deposit_account TEXT, -- Added: 보증금 환급 계좌 (Requirement)
-    emergency_contact TEXT, -- Added: 비상 연락처 (Requirement)
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table public.customers (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  phone text not null,
+  address text,
+  memo text,
+  company_id text,
+  deposit_account text,
+  emergency_contact text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Design Size Inventory Table
-CREATE TABLE design_size_inventory (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    design_code TEXT NOT NULL,
-    design_name TEXT NOT NULL,
-    size TEXT NOT NULL,
-    category TEXT, -- Added: matches schema image
-    season TEXT, -- Added: matches schema image
-    brand TEXT, -- Added: matches schema image
-    color TEXT, -- Added: matches schema image
-    rental_price INTEGER DEFAULT 0,
-    purchase_price INTEGER DEFAULT 0, -- Added: matches schema image
-    total_quantity INTEGER DEFAULT 0,
-    rented_quantity INTEGER DEFAULT 0,
-    sold_quantity INTEGER DEFAULT 0,
-    available_for_sale INTEGER DEFAULT 0,
-    outstanding_shipment INTEGER DEFAULT 0,
-    shippable INTEGER DEFAULT 0,
-    order_required INTEGER DEFAULT 0,
-    condition TEXT,
-    inventory_type TEXT DEFAULT '대여용', -- '대여용' | '구매용'
-    display_order INTEGER,
-    company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table public.design_size_inventory (
+  id uuid default gen_random_uuid() primary key,
+  design_code text not null,
+  design_name text not null,
+  size text not null,
+  category text,
+  season text,
+  brand text,
+  color text,
+  rental_price integer default 0,
+  purchase_price integer default 0,
+  total_quantity integer default 0,
+  rented_quantity integer default 0,
+  available_quantity integer default 0,
+  sold_quantity integer default 0,
+  available_for_sale integer default 0,
+  outstanding_shipment integer default 0,
+  shippable integer default 0,
+  order_required integer default 0,
+  condition text,
+  inventory_type text not null,
+  display_order integer,
+  company_id text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Rentals Table
-CREATE TABLE rentals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
-    design_code TEXT NOT NULL,
-    design_name TEXT NOT NULL,
-    size TEXT NOT NULL,
-    quantity INTEGER DEFAULT 1,
-    rental_date DATE NOT NULL,
-    return_due_date DATE,
-    return_date DATE, -- Added: matches schema image
-    rental_price INTEGER DEFAULT 0,
-    status TEXT NOT NULL, -- '대여예정', '출고완료', '대여중', '반납완료', '연체'
-    delivery_method TEXT, -- Added: 배송방법 (sorting requirement)
-    notes TEXT, -- Added: matches schema image
-    company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table public.rentals (
+  id uuid default gen_random_uuid() primary key,
+  customer_id uuid references public.customers(id),
+  design_code text not null,
+  design_name text not null,
+  size text not null,
+  quantity integer default 1,
+  rental_date timestamp with time zone not null,
+  return_due_date timestamp with time zone not null,
+  return_date timestamp with time zone,
+  rental_price integer default 0,
+  status text not null,
+  delivery_method text,
+  notes text,
+  company_id text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Purchases Table
-CREATE TABLE purchases (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
-    design_code TEXT NOT NULL,
-    design_name TEXT NOT NULL,
-    size TEXT NOT NULL,
-    quantity INTEGER DEFAULT 1,
-    purchase_date DATE NOT NULL,
-    purchase_price INTEGER DEFAULT 0,
-    status TEXT NOT NULL, -- '구매완료', '취소'
-    company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table public.purchases (
+  id uuid default gen_random_uuid() primary key,
+  customer_id uuid references public.customers(id),
+  design_code text not null,
+  design_name text not null,
+  size text not null,
+  quantity integer default 1,
+  purchase_date timestamp with time zone not null,
+  purchase_price integer default 0,
+  status text not null,
+  pickup_method text,
+  return_method text,
+  expected_ship_date timestamp with time zone,
+  company_id text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Shipments Table
-CREATE TABLE shipments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
-    design_code TEXT NOT NULL,
-    design_name TEXT NOT NULL,
-    size TEXT NOT NULL,
-    quantity INTEGER DEFAULT 1,
-    shipment_date DATE NOT NULL,
-    shipping_method TEXT NOT NULL, -- '택배', '등기', '직접수령'
-    status TEXT NOT NULL, -- '출고대기', '출고완료', '배송중', '배송완료'
-    notes TEXT,
-    company_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    -- tracking_number removed (Requirement)
+create table public.shipments (
+  id uuid default gen_random_uuid() primary key,
+  customer_id uuid references public.customers(id),
+  design_code text not null,
+  design_name text not null,
+  size text not null,
+  quantity integer default 1,
+  shipment_date timestamp with time zone not null,
+  shipping_method text not null,
+  status text not null,
+  notes text,
+  company_id text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Enable Row Level Security (RLS)
+alter table public.customers enable row level security;
+alter table public.design_size_inventory enable row level security;
+alter table public.rentals enable row level security;
+alter table public.purchases enable row level security;
+alter table public.shipments enable row level security;
+
+-- Create policies (Example: Allow all access for now, can be restricted later)
+create policy "Allow all access for customers" on public.customers for all using (true);
+create policy "Allow all access for inventory" on public.design_size_inventory for all using (true);
+create policy "Allow all access for rentals" on public.rentals for all using (true);
+create policy "Allow all access for purchases" on public.purchases for all using (true);
+create policy "Allow all access for shipments" on public.shipments for all using (true);
+
+-- Function to handle updated_at
+create or replace function public.handle_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+-- Triggers for updated_at
+create trigger handle_updated_at_customers
+  before update on public.customers
+  for each row execute procedure public.handle_updated_at();
+
+create trigger handle_updated_at_inventory
+  before update on public.design_size_inventory
+  for each row execute procedure public.handle_updated_at();
+
+create trigger handle_updated_at_rentals
+  before update on public.rentals
+  for each row execute procedure public.handle_updated_at();
+
+create trigger handle_updated_at_purchases
+  before update on public.purchases
+  for each row execute procedure public.handle_updated_at();
+
+create trigger handle_updated_at_shipments
+  before update on public.shipments
+  for each row execute procedure public.handle_updated_at();

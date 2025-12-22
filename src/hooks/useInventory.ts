@@ -5,9 +5,8 @@ import { Customer, DesignSizeInventory, Rental, Purchase, Shipment, WeekRange } 
 
 const COMPANY_ID = '00000000-0000-0000-0000-000000000001';
 
-// Active rental statuses that consume inventory for the week
-// User Requirement: Scheduled (대여예정) & Shipped (출고완료) count as Reserved.
-// Mon-Sun Unit: Any status overlapping the week consumes the slot.
+// 주간 슬롯(월~일) 기준으로 “하루라도 겹치면” 재고 차감
+// 취소만 제외하고 나머지는 전부 슬롯 소비(요구사항)
 const ACTIVE_RENTAL_STATUSES = ['대여예정', '출고완료', '대여중', '반납완료', '연체'];
 
 export const useInventory = () => {
@@ -30,10 +29,7 @@ export const useInventory = () => {
   // Helpers
   const getWeekRange = (date: Date): WeekRange => {
     const monday = new Date(date);
-    // Convert Sunday (0) to 7, so Mon(1) remains 1, etc.
-    // Logic: Mon(1) -> 1, Tue(2) -> 2, ..., Sun(0) -> 7.
-    // monday = date - (day - 1)
-    const day = date.getDay() || 7;
+    const day = date.getDay() || 7; // Sun(0)->7
     monday.setDate(date.getDate() - day + 1);
     monday.setHours(0, 0, 0, 0);
 
@@ -44,7 +40,12 @@ export const useInventory = () => {
     return { start: monday, end: sunday };
   };
 
-  const calculateWeeklyInventory = useCallback((startDate: Date, endDate: Date, inventory: DesignSizeInventory[], rentalsData: Rental[]) => {
+  const calculateWeeklyInventory = useCallback((
+    startDate: Date,
+    endDate: Date,
+    inventory: DesignSizeInventory[],
+    rentalsData: Rental[]
+  ) => {
     const sDate = new Date(startDate);
     sDate.setHours(0, 0, 0, 0);
     const eDate = new Date(endDate);
@@ -53,11 +54,15 @@ export const useInventory = () => {
     const weeklyData = inventory
       .filter(item => item.inventory_type === '대여용')
       .map(item => {
-        const totalAvailable = item.total_quantity;
+        const totalAvailable = item.total_quantity || 0;
 
-        // Calculate quantity of ANY active rental that overlaps with this week
         const weekRentalsQty = rentalsData
           .filter(r => {
+            const status = (r.status || '').trim();
+            // “취소”만 제외하고 싶으면 아래처럼 바꿔도 됨:
+            // if (status === '취소') return false;
+            if (!ACTIVE_RENTAL_STATUSES.includes(status)) return false;
+
             const rCode = (r.design_code || '').trim().toLowerCase();
             const iCode = (item.design_code || '').trim().toLowerCase();
             if (rCode !== iCode) return false;
@@ -66,16 +71,13 @@ export const useInventory = () => {
             const iSize = (item.size || '').trim().toLowerCase();
             if (rSize !== iSize) return false;
 
-            // Check if status is one of the active statuses
-            if (!ACTIVE_RENTAL_STATUSES.includes((r.status || '').trim())) return false;
-
             const rentalStart = new Date(r.rental_date);
             rentalStart.setHours(0, 0, 0, 0);
 
             const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date);
             rentalEnd.setHours(23, 59, 59, 999);
 
-            // Check overlap: (StartA <= EndB) and (EndA >= StartB)
+            // 겹침 체크 (하루라도 포함되면 true)
             return rentalStart <= eDate && rentalEnd >= sDate;
           })
           .reduce((sum, r) => sum + (r.quantity || 0), 0);
@@ -94,7 +96,12 @@ export const useInventory = () => {
     setWeeklyInventorySoldOut(weeklyData.filter(x => x.finalAvailable === 0));
   }, []);
 
-  const calculateWeeklyRentalInventory = useCallback((weekStart: Date, weekEnd: Date, inventory: DesignSizeInventory[], rentalsData: Rental[]) => {
+  const calculateWeeklyRentalInventory = useCallback((
+    weekStart: Date,
+    weekEnd: Date,
+    inventory: DesignSizeInventory[],
+    rentalsData: Rental[]
+  ) => {
     const sDate = new Date(weekStart);
     sDate.setHours(0, 0, 0, 0);
     const eDate = new Date(weekEnd);
@@ -105,6 +112,9 @@ export const useInventory = () => {
       .map(item => {
         const overlappedQty = rentalsData
           .filter(r => {
+            const status = (r.status || '').trim();
+            if (!ACTIVE_RENTAL_STATUSES.includes(status)) return false;
+
             const rCode = (r.design_code || '').trim().toLowerCase();
             const iCode = (item.design_code || '').trim().toLowerCase();
             if (rCode !== iCode) return false;
@@ -112,8 +122,6 @@ export const useInventory = () => {
             const rSize = (r.size || '').trim().toLowerCase();
             const iSize = (item.size || '').trim().toLowerCase();
             if (rSize !== iSize) return false;
-
-            if (!ACTIVE_RENTAL_STATUSES.includes((r.status || '').trim())) return false;
 
             const rentalStart = new Date(r.rental_date);
             rentalStart.setHours(0, 0, 0, 0);
@@ -140,24 +148,24 @@ export const useInventory = () => {
         setRentalWeeklyInventory([]);
         return;
       }
-
       if (!designSizeInventory.length || !Array.isArray(rentals)) {
         setRentalWeeklyInventory([]);
         return;
       }
 
       const selected = new Date(rentalDate);
-      selected.setHours(0,0,0,0);
+      selected.setHours(0, 0, 0, 0);
 
       const { start: monday, end: sunday } = getWeekRange(selected);
-      monday.setHours(0,0,0,0);
-      sunday.setHours(23,59,59,999);
 
       const weeklyData = designSizeInventory
         .filter(item => item.inventory_type === '대여용')
         .map(item => {
           const weekRentalsQty = rentals
             .filter(r => {
+              const status = (r.status || '').trim();
+              if (!ACTIVE_RENTAL_STATUSES.includes(status)) return false;
+
               const rCode = (r.design_code || '').trim().toLowerCase();
               const iCode = (item.design_code || '').trim().toLowerCase();
               if (rCode !== iCode) return false;
@@ -166,19 +174,16 @@ export const useInventory = () => {
               const iSize = (item.size || '').trim().toLowerCase();
               if (rSize !== iSize) return false;
 
-              if (!ACTIVE_RENTAL_STATUSES.includes((r.status || '').trim())) return false;
-
               const rentalStart = new Date(r.rental_date);
-              rentalStart.setHours(0,0,0,0);
+              rentalStart.setHours(0, 0, 0, 0);
               const rentalEnd = r.return_due_date ? new Date(r.return_due_date) : new Date(r.rental_date);
-              rentalEnd.setHours(23,59,59,999);
+              rentalEnd.setHours(23, 59, 59, 999);
 
               return rentalStart <= sunday && rentalEnd >= monday;
             })
             .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
           const finalAvailable = Math.max(0, (item.total_quantity || 0) - weekRentalsQty);
-
           return { ...item, weekRentals: weekRentalsQty, finalAvailable };
         })
         .filter(x => (x.finalAvailable || 0) > 0);
@@ -190,7 +195,6 @@ export const useInventory = () => {
     }
   }, [designSizeInventory, rentals]);
 
-
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -200,42 +204,38 @@ export const useInventory = () => {
         .select('*')
         .order('display_order', { ascending: true, nullsFirst: false })
         .order('design_code', { ascending: true });
-
       if (designSizeError) throw designSizeError;
 
       const { data: rentalsData, error: rentalsError } = await supabase
         .from('rentals')
         .select(`*, customers(*)`)
         .order('created_at', { ascending: false });
-
       if (rentalsError) throw rentalsError;
 
       const { data: purchasesData, error: purchasesError } = await supabase
         .from('purchases')
         .select(`*, customers(*)`)
         .order('created_at', { ascending: false });
-
       if (purchasesError) throw purchasesError;
 
       const { data: shipmentsData, error: shipmentsError } = await supabase
         .from('shipments')
         .select(`*, customers(*)`)
         .order('created_at', { ascending: false });
-
       if (shipmentsError) throw shipmentsError;
 
-      setDesignSizeInventory(designSizeData as DesignSizeInventory[] || []);
+      // ✅ 고객은 customers 테이블에서 “전체”를 가져와야 함
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (customersError) throw customersError;
+
+      setDesignSizeInventory((designSizeData as DesignSizeInventory[]) || []);
       setRentals((rentalsData as unknown as Rental[]) || []);
       setPurchases((purchasesData as unknown as Purchase[]) || []);
       setShipments((shipmentsData as unknown as Shipment[]) || []);
-
-      const map = new Map<string, Customer>();
-      (rentalsData as unknown as Rental[] | null || []).forEach(r => {
-        if (r.customer_id && r.customers && !map.has(r.customer_id)) {
-          map.set(r.customer_id, r.customers);
-        }
-      });
-      setCustomers(Array.from(map.values()));
+      setCustomers((customersData as Customer[]) || []);
 
     } catch (error: any) {
       toast({

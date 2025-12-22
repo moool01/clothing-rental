@@ -77,7 +77,7 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
       if (error) throw error;
 
       setRentals(prev => [data?.[0], ...prev]);
-      setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0 });
+      setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0, pickup_method: '픽업', return_method: '매장반납' });
       setIsRentalDialogOpen(false);
       setRentalWeeklyInventory([]);
 
@@ -256,7 +256,7 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
             <Dialog open={isRentalDialogOpen} onOpenChange={setIsRentalDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => {
-                  setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0 });
+                  setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0, pickup_method: '픽업', return_method: '매장반납' });
                   setRentalWeeklyInventory([]);
                 }}>
                   <Plus className="h-4 w-4 mr-2" />대여 등록

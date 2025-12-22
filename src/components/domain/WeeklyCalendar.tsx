@@ -14,7 +14,7 @@ interface WeeklyCalendarProps {
   allWeeklyInventory: DesignSizeInventory[];
 }
 
-const SOLD_OUT_PAGE_SIZE = 5;
+const SOLD_OUT_PAGE_SIZE = 12;
 
 export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
   selectedDate,
@@ -34,9 +34,9 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
   return (
     <div className="space-y-6">
       {/* 상단 영역 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* 달력 */}
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>달력 선택</CardTitle>
           </CardHeader>
@@ -58,7 +58,7 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
         </Card>
 
         {/* 주간 재고 현황 */}
-        <Card>
+        <Card className="lg:col-span-3">
           <CardHeader className="pb-2">
             <CardTitle>주간 재고 현황</CardTitle>
           </CardHeader>

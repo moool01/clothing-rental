@@ -101,16 +101,36 @@ export const PurchaseInventory: React.FC<PurchaseInventoryProps> = ({
 
   const updateDesignSize = async (id: string, field: string, value: any) => {
     if (!canEdit) return;
+
     try {
+      // 1) DB 업데이트 (구매용만)
       const { error } = await supabase
         .from('design_size_inventory')
-        .update({ [field]: value })
-        .eq('id', id);
+        .update({
+          [field]: value,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('inventory_type', '구매용'); // ✅ 구매용만 업데이트(실수 방지)
+
       if (error) throw error;
-      await fetchData();
+
+      // 2) ✅ 화면 즉시 반영 (이게 체감상 “안 바뀜”을 없앰)
+      setInventory(prev =>
+        prev.map(row => (row.id === id ? { ...row, [field]: value } : row))
+      );
+
+      // 3) 필요하면 서버 정합성 맞추기 위해 나중에 fetch
+      // (즉시 fetchData()를 하면 타이밍 이슈로 다시 0으로 보일 수 있어서 살짝 딜레이)
+      setTimeout(fetchData, 150);
+
       toast({ title: '수정 완료', description: '데이터가 수정되었습니다.' });
     } catch (e: any) {
-      toast({ title: '수정 실패', description: e?.message || '오류', variant: 'destructive' });
+      toast({
+        title: '수정 실패',
+        description: e?.message || '오류',
+        variant: 'destructive',
+      });
     }
   };
 

@@ -143,7 +143,15 @@ export function SortableTableRow({ id, design, onUpdate, onDelete, inventoryType
         <>
           {/* 판매됨 */}
           <TableCell>
-            <Badge className="bg-red-50 text-red-400">{design.sold_quantity || 0}개</Badge>
+            {canEdit ? (
+              <EditableCell
+                value={design.sold_quantity ?? 0}
+                type="number"
+                onSave={(value) => onUpdate(design.id, 'sold_quantity', Math.max(0, Number(value)))}
+              />
+            ) : (
+              <Badge className="bg-red-50 text-red-400">{design.sold_quantity || 0}개</Badge>
+            )}
           </TableCell>
           
           {/* 출고완료 - Removed as per requirements, but keeping for purchase if needed? User said "Purchase Inventory -> Remove Shipped Complete" */}
@@ -153,7 +161,12 @@ export function SortableTableRow({ id, design, onUpdate, onDelete, inventoryType
           
           {/* ATS (판매가능) */}
           <TableCell>
-            <Badge className="bg-blue-50 text-blue-400">{design.available_for_sale || 0}개</Badge>
+            {(() => {
+              const total = Number(design.total_quantity ?? 0);
+              const sold = Number(design.sold_quantity ?? 0);
+              const ats = Math.max(0, total - sold);
+              return <Badge className="bg-blue-50 text-blue-400">{ats}개</Badge>;
+            })()}
           </TableCell>
           
           {/* 주문 필요량 */}

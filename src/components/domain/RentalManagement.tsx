@@ -60,34 +60,81 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
     from: '',
     to: ''
   });
-
   const addRental = async () => {
     try {
+      // 1) 기본 검증
+      if (!newRental.customer_id) throw new Error('고객을 선택해주세요.');
+      if (!newRental.rental_date) throw new Error('대여일을 선택해주세요.');
+      if (!newRental.return_due_date) throw new Error('반납예정일을 선택해주세요.');
+      if (!newRental.design_code || !newRental.size) throw new Error('디자인/사이즈를 선택해주세요.');
+      if (Number(newRental.quantity) <= 0) throw new Error('수량은 1개 이상이어야 합니다.');
+
+      // 2) 날짜 검증: 반납일 >= 대여일
+      const start = new Date(newRental.rental_date);
+      const end = new Date(newRental.return_due_date);
+      if (end < start) throw new Error('반납예정일은 대여일 이후여야 합니다.');
+
+      // 3) 주간 재고 초과 방지 (finalAvailable 기준)
+      const inv = rentalWeeklyInventory.find(
+        (i: any) => i.design_code === newRental.design_code && i.size === newRental.size
+      );
+      const available = Number(inv?.finalAvailable ?? 0);
+      if (Number(newRental.quantity) > available) {
+        throw new Error(`대여 가능 수량(${available})을 초과했습니다.`);
+      }
+
+      // 4) payload: DB에 없는 pickup_method/return_method는 넣지 않음
+      const payload = {
+        customer_id: newRental.customer_id,
+        design_code: newRental.design_code,
+        design_name: newRental.design_name,
+        size: newRental.size,
+        quantity: Number(newRental.quantity),
+        rental_price: Number(newRental.rental_price ?? 0),
+
+        // ✅ date input -> timestamptz 안전 변환 (KST로 넣기)
+        rental_date: `${newRental.rental_date}T00:00:00+09:00`,
+        return_due_date: `${newRental.return_due_date}T23:59:59+09:00`,
+
+        status: '대여예정',
+        delivery_method: `수령-${newRental.pickup_method} / 반납-${newRental.return_method}`,
+        company_id: COMPANY_ID,
+      };
+
       const { data, error } = await supabase
         .from('rentals')
-        .insert([{
-          ...newRental,
-          delivery_method: `수령-${newRental.pickup_method} / 반납-${newRental.return_method}`,
-
-          status: '대여예정',
-          company_id: COMPANY_ID,
-        }])
+        .insert([payload])
         .select(`*, customers(*)`);
 
       if (error) throw error;
 
       setRentals(prev => [data?.[0], ...prev]);
-      setNewRental({ customer_id: '', design_code: '', design_name: '', size: '', quantity: 1, rental_date: '', return_due_date: '', rental_price: 0, pickup_method: '픽업', return_method: '매장반납' });
+      setNewRental({
+        customer_id: '',
+        design_code: '',
+        design_name: '',
+        size: '',
+        quantity: 1,
+        rental_date: '',
+        return_due_date: '',
+        rental_price: 0,
+        pickup_method: '픽업',
+        return_method: '매장반납',
+      });
       setIsRentalDialogOpen(false);
       setRentalWeeklyInventory([]);
 
-      setTimeout(fetchData, 120);
+      setTimeout(fetchData, 150);
 
       toast({ title: '대여 등록 완료', description: '대여가 등록되었습니다.' });
     } catch (e: any) {
-      toast({ title: '대여 등록 실패', description: e?.message || '오류', variant: 'destructive' });
+      toast({
+        title: '대여 등록 실패',
+        description: e?.message || '오류',
+        variant: 'destructive',
+      });
     }
-  };
+};
 
   const updateRental = async (id: string, field: string, value: any) => {
     try {
@@ -319,14 +366,20 @@ export const RentalManagement: React.FC<RentalManagementProps> = ({
                       <Select
                         value={newRental.design_code && newRental.size ? `${newRental.design_code}-${newRental.size}` : ''}
                         onValueChange={(value) => {
-                          const [design_code, size] = value.split('-');
-                          const found = rentalWeeklyInventory.find((x: any) => x.design_code === design_code && x.size === size);
+                          const lastDash = value.lastIndexOf('-');
+                          const design_code = value.slice(0, lastDash);
+                          const size = value.slice(lastDash + 1);
+
+                          const found = rentalWeeklyInventory.find((x: any) =>
+                            x.design_code === design_code && x.size === size
+                          );
+
                           setNewRental({
                             ...newRental,
                             design_code,
                             design_name: found?.design_name || '',
                             size,
-                            rental_price: found?.rental_price || 0
+                            rental_price: found?.rental_price || 0,
                           });
                         }}
                       >

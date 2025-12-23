@@ -8,6 +8,10 @@ interface EditableCellProps {
   value: any;
   type: 'text' | 'number' | 'select' | 'date';
   options?: string[];
+<<<<<<< HEAD
+=======
+  placeholder?: string;
+>>>>>>> subin
   onSave: (newValue: any) => void;
   className?: string;
 }
@@ -16,6 +20,10 @@ const EditableCell: React.FC<EditableCellProps> = ({
   value, 
   type, 
   options = [], 
+<<<<<<< HEAD
+=======
+  placeholder,
+>>>>>>> subin
   onSave, 
   className = '' 
 }) => {
@@ -57,7 +65,11 @@ const EditableCell: React.FC<EditableCellProps> = ({
       {type === 'select' ? (
         <Select value={editValue} onValueChange={setEditValue}>
           <SelectTrigger className="h-8">
+<<<<<<< HEAD
             <SelectValue />
+=======
+            <SelectValue placeholder={placeholder} />
+>>>>>>> subin
           </SelectTrigger>
           <SelectContent>
             {options.map((option) => (

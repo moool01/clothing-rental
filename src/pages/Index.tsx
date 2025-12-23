@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from "@/integrations/supabase/supabase_client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -731,6 +732,82 @@ const Index = () => {
     () => designSizeInventory.filter(x => x.inventory_type === '구매용'),
     [designSizeInventory],
   );
+=======
+import React, { useState, useEffect } from 'react';
+import { useAuth, AuthProvider } from '@/contexts/AuthContext';
+import { useInventory } from '@/hooks/useInventory';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { WeeklyCalendar } from '@/components/domain/WeeklyCalendar';
+import { RentalInventory } from '@/components/domain/RentalInventory';
+import { RentalManagement } from '@/components/domain/RentalManagement';
+import { PurchaseInventory } from '@/components/domain/PurchaseInventory';
+import { ShipmentManagement } from '@/components/domain/ShipmentManagement';
+import { PurchaseManagement } from '@/components/domain/PurchaseManagement';
+import { CustomerManagement } from '@/components/domain/CustomerManagement';
+import { StatisticsReports } from '@/components/domain/StatisticsReports';
+
+const Dashboard = () => {
+  const { role, setRole } = useAuth();
+  const {
+    loading,
+    customers,
+    setCustomers,
+    designSizeInventory,
+    setDesignSizeInventory,
+    rentals,
+    setRentals,
+    purchases,
+    setPurchases,
+    shipments,
+    weeklyInventorySoldOut,
+    allWeeklyInventory,
+    weeklyRentalInventory,
+    setWeeklyRentalInventory,
+    rentalWeeklyInventory,
+    setRentalWeeklyInventory,
+    fetchData,
+    calculateWeeklyInventory,
+    calculateWeeklyRentalInventory,
+    calculateRentalWeeklyInventory,
+    getWeekRange,
+    COMPANY_ID
+  } = useInventory();
+  const formatLocalDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedWeekRange, setSelectedWeekRange] = useState(() => getWeekRange(new Date()));
+
+  // Role-based Tab Access
+  // Staff: Weekly Calendar, Rental Inventory (View), Rental Management (All)
+  // Manager: + Edit Inventory, Edit Rental Price
+  // Admin: + Statistics, Total Quantity
+
+  // We will show all tabs but control content inside.
+  // Except Reports which is Admin only usually, but let's keep tabs visible and show "Access Denied" inside or hide tab?
+  // User Requirement: "Admin (Function approval, Statistics) -> Statistics report access"
+  // So hide Reports tab for non-admin? Or disable. I'll hide it.
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    setSelectedDate(date);
+    const range = getWeekRange(date);
+    setSelectedWeekRange(range);
+    calculateWeeklyInventory(range.start, range.end, designSizeInventory, rentals);
+  };
+
+  useEffect(() => {
+    if (designSizeInventory.length > 0) {
+      calculateWeeklyInventory(selectedWeekRange.start, selectedWeekRange.end, designSizeInventory, rentals);
+      setWeeklyRentalInventory(calculateWeeklyRentalInventory(selectedWeekRange.start, selectedWeekRange.end, designSizeInventory, rentals));
+    }
+  }, [designSizeInventory, rentals, selectedWeekRange, calculateWeeklyInventory, calculateWeeklyRentalInventory, setWeeklyRentalInventory]);
+
+>>>>>>> subin
 
   if (loading) {
     return (
@@ -746,6 +823,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
+<<<<<<< HEAD
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">의류 대여 재고관리 시스템</h1>
           <p className="text-gray-600 mt-2">재고 관리 및 대여 현황 추적</p>
@@ -753,6 +831,29 @@ const Index = () => {
 
         <Tabs defaultValue="weekly-calendar" className="space-y-6">
           <TabsList className="grid w-full grid-cols-8">
+=======
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">의류 대여 재고관리 시스템</h1>
+            <p className="text-gray-600 mt-2">재고 관리 및 대여 현황 추적</p>
+          </div>
+
+          <div className="flex items-center gap-2 bg-white p-2 rounded shadow-sm border">
+            <span className="text-sm font-medium text-gray-600">
+                {role === 'staff' ? '직원' : role === 'manager' ? '실장' : '관리자'} 님
+            </span>
+            <button
+                onClick={() => setRole(null)}
+                className="text-xs text-red-500 hover:text-red-700 underline ml-2"
+            >
+                로그아웃
+            </button>
+          </div>
+        </div>
+
+        <Tabs defaultValue="weekly-calendar" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
+>>>>>>> subin
             <TabsTrigger value="weekly-calendar">주간달력</TabsTrigger>
             <TabsTrigger value="rental-inventory">대여용재고</TabsTrigger>
             <TabsTrigger value="rentals">대여관리</TabsTrigger>
@@ -760,6 +861,7 @@ const Index = () => {
             <TabsTrigger value="shipments">출고관리</TabsTrigger>
             <TabsTrigger value="purchases">구매관리</TabsTrigger>
             <TabsTrigger value="customers">고객관리</TabsTrigger>
+<<<<<<< HEAD
             <TabsTrigger value="reports">통계리포트</TabsTrigger>
           </TabsList>
 
@@ -1773,10 +1875,107 @@ const Index = () => {
               </Card>
             </div>
           </TabsContent>
+=======
+            {role === 'admin' && <TabsTrigger value="reports">통계리포트</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="weekly-calendar">
+            <WeeklyCalendar
+              selectedDate={selectedDate}
+              onDateSelect={handleDateSelect}
+              selectedWeekRange={selectedWeekRange}
+              weeklyInventorySoldOut={weeklyInventorySoldOut}
+              allWeeklyInventory={allWeeklyInventory}
+            />
+          </TabsContent>
+
+          <TabsContent value="rental-inventory">
+            <RentalInventory
+              selectedWeekRange={selectedWeekRange}
+              inventory={designSizeInventory}
+              setInventory={setDesignSizeInventory}
+              fetchData={fetchData}
+              COMPANY_ID={COMPANY_ID}
+              weeklyStats={weeklyRentalInventory}
+            />
+          </TabsContent>
+
+          <TabsContent value="rentals">
+            <RentalManagement
+              rentals={rentals}
+              setRentals={setRentals}
+              customers={customers}
+              designSizeInventory={designSizeInventory}
+              fetchData={fetchData}
+              rentalWeeklyInventory={rentalWeeklyInventory}
+              setRentalWeeklyInventory={setRentalWeeklyInventory}
+              calculateRentalWeeklyInventory={calculateRentalWeeklyInventory}
+              COMPANY_ID={COMPANY_ID}
+            />
+          </TabsContent>
+
+          <TabsContent value="purchase-inventory">
+            <PurchaseInventory
+              inventory={designSizeInventory}
+              setInventory={setDesignSizeInventory}
+              fetchData={fetchData}
+              COMPANY_ID={COMPANY_ID}
+            />
+          </TabsContent>
+
+          <TabsContent value="shipments">
+            <ShipmentManagement
+              shipments={shipments}
+              customers={customers}
+              inventory={designSizeInventory}
+              fetchData={fetchData}
+              COMPANY_ID={COMPANY_ID}
+            />
+          </TabsContent>
+
+          <TabsContent value="purchases">
+            <PurchaseManagement
+              purchases={purchases}
+              customers={customers}
+              inventory={designSizeInventory}
+              fetchData={fetchData}
+              COMPANY_ID={COMPANY_ID}
+            />
+          </TabsContent>
+
+          <TabsContent value="customers">
+            <CustomerManagement
+              customers={customers}
+              setCustomers={setCustomers}
+              rentals={rentals}
+              fetchData={fetchData}
+              COMPANY_ID={COMPANY_ID}
+            />
+          </TabsContent>
+
+          {role === 'admin' && (
+            <TabsContent value="reports">
+              <StatisticsReports
+                inventory={designSizeInventory}
+                rentals={rentals}
+                purchases={purchases}
+                shipments={shipments}
+                weekStart={formatLocalDate(selectedWeekRange.start)}
+                weekEnd={formatLocalDate(selectedWeekRange.end)}
+              />
+            </TabsContent>
+          )}
+>>>>>>> subin
         </Tabs>
       </div>
     </div>
   );
 };
 
+<<<<<<< HEAD
 export default Index;
+=======
+export default function Index() {
+  return <Dashboard />;
+}
+>>>>>>> subin

@@ -25,4 +25,8 @@ dist-ssr
 # env
 .env
 .env.local
+<<<<<<< HEAD
 .env.*.local
+=======
+.env.*.local.env
+>>>>>>> subin

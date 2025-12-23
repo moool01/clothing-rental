@@ -38,7 +38,12 @@ const Dashboard = () => {
     getWeekRange,
     COMPANY_ID
   } = useInventory();
-
+  const formatLocalDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedWeekRange, setSelectedWeekRange] = useState(() => getWeekRange(new Date()));
 
@@ -193,6 +198,9 @@ const Dashboard = () => {
                 inventory={designSizeInventory}
                 rentals={rentals}
                 purchases={purchases}
+                shipments={shipments}
+                weekStart={formatLocalDate(selectedWeekRange.start)}
+                weekEnd={formatLocalDate(selectedWeekRange.end)}
               />
             </TabsContent>
           )}

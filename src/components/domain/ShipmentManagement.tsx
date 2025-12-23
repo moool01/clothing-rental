@@ -8,9 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table';
 import {
@@ -51,7 +48,7 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
     shipment_date: new Date().toISOString().split('T')[0],
     shipping_method: '택배',
     status: '출고완료',
-    notes: '', // ✅ 송장번호
+    notes: '', // 송장번호
   });
 
   const purchaseRows = inventory.filter(x => x.inventory_type === '구매용');
@@ -190,8 +187,10 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
               <TableHead>사이즈</TableHead>
               <TableHead>수량</TableHead>
               <TableHead>고객명</TableHead>
-              <TableHead onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="cursor-pointer">
+              <TableHead
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="cursor-pointer"
+              >
                 출고일 {sortOrder === 'asc' ? '▲' : '▼'}
               </TableHead>
               <TableHead>배송방법</TableHead>
@@ -205,20 +204,40 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
             {sortedShipments.map(s => (
               <TableRow key={s.id}>
                 <TableCell>
-                  <EditableCell value={s.design_code} onSave={v => updateShipment(s.id, 'design_code', v)} />
+                  <EditableCell
+                    type="text"
+                    value={s.design_code}
+                    onSave={v => updateShipment(s.id, 'design_code', v)}
+                  />
                 </TableCell>
                 <TableCell>
-                  <EditableCell value={s.design_name} onSave={v => updateShipment(s.id, 'design_name', v)} />
+                  <EditableCell
+                    type="text"
+                    value={s.design_name}
+                    onSave={v => updateShipment(s.id, 'design_name', v)}
+                  />
                 </TableCell>
                 <TableCell>
-                  <EditableCell value={s.size} onSave={v => updateShipment(s.id, 'size', v)} />
+                  <EditableCell
+                    type="text"
+                    value={s.size}
+                    onSave={v => updateShipment(s.id, 'size', v)}
+                  />
                 </TableCell>
                 <TableCell>
-                  <EditableCell type="number" value={s.quantity} onSave={v => updateShipment(s.id, 'quantity', Number(v))} />
+                  <EditableCell
+                    type="number"
+                    value={s.quantity}
+                    onSave={v => updateShipment(s.id, 'quantity', Number(v))}
+                  />
                 </TableCell>
                 <TableCell>{s.customers?.name || '-'}</TableCell>
                 <TableCell>
-                  <EditableCell type="date" value={s.shipment_date} onSave={v => updateShipment(s.id, 'shipment_date', v)} />
+                  <EditableCell
+                    type="date"
+                    value={s.shipment_date}
+                    onSave={v => updateShipment(s.id, 'shipment_date', v)}
+                  />
                 </TableCell>
                 <TableCell>
                   <EditableCell
@@ -230,6 +249,7 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({
                 </TableCell>
                 <TableCell>
                   <EditableCell
+                    type="text"
                     value={s.notes || ''}
                     placeholder="송장번호"
                     onSave={v => updateShipment(s.id, 'notes', v)}

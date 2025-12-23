@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-import Index from "./pages/Index";
-
-export default function App() {
-  return <Index />;
-}
-=======
 import React from 'react';
 import Index from "./pages/Index";
 import { Login } from "./pages/Login";
@@ -27,4 +20,3 @@ export default function App() {
     </AuthProvider>
   );
 }
->>>>>>> subin

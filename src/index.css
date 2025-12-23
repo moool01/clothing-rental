@@ -64,11 +64,6 @@
   }
   body {
     @apply bg-background text-foreground;
-<<<<<<< HEAD
-  }
-}
-=======
     font-family: 'Noto Sans KR', sans-serif;
   }
 }
->>>>>>> subin
